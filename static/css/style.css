@@ -1,0 +1,36 @@
+/* Style the whole webpage */
+body{
+
+    margin:0;
+
+    font-family:Arial;
+
+}
+
+/* Style the navigation bar */
+nav{
+
+    background:#333;
+
+}
+
+/* Style the navigation links */
+nav a{
+
+    color:white;
+
+}
+
+/* Style the main heading */
+h1{
+
+    font-size:48px;
+
+}
+
+/* Style all buttons */
+button{
+
+    background:gold;
+
+}
