@@ -1,0 +1,84 @@
+<!-- Use the common website layout from base.html -->
+{% extends "base.html" %}
+
+<!-- Set the title shown in the browser tab -->
+{% block title %}
+Contact
+{% endblock %}
+
+<!-- Start of the webpage content -->
+{% block content %}
+
+<!-- Main page heading -->
+<h1>Book an Enquiry</h1>
+
+<!-- Brief instructions for the customer -->
+<p>Please complete the form below and our team will contact you.</p>
+
+<!-- Customer enquiry form -->
+<form method="POST">
+
+    <!-- CUSTOMER DETAILS -->
+
+    <!-- Section heading -->
+    <h2>Customer Details</h2>
+
+    <!-- Customer's first name -->
+    <label>First Name</label><br>
+    <input type="text" name="firstname" required><br><br>
+
+    <!-- Customer's last name -->
+    <label>Last Name</label><br>
+    <input type="text" name="lastname" required><br><br>
+
+    <!-- Customer's email address -->
+    <label>Email</label><br>
+    <input type="email" name="email" required><br><br>
+
+    <!-- Customer's phone number -->
+    <label>Phone Number</label><br>
+    <input type="text" name="phone"><br><br>
+
+
+    <!-- EVENT DETAILS -->
+
+    <!-- Section heading -->
+    <h2>Event Details</h2>
+
+    <!-- Event type selection -->
+    <label>Event Type</label><br>
+    <select name="eventtype" required>
+        <option value="">Select an Event</option>
+        <option>Wedding</option>
+        <option>Birthday</option>
+        <option>Engagement</option>
+        <option>Corporate Event</option>
+        <option>Baby Shower</option>
+        <option>Other</option>
+    </select><br><br>
+
+    <!-- Event date -->
+    <label>Event Date</label><br>
+    <input type="date" name="eventdate" required><br><br>
+
+    <!-- Expected number of guests -->
+    <label>Number of Guests</label><br>
+    <input type="number" name="guests"><br><br>
+
+    <!-- Estimated customer budget -->
+    <label>Estimated Budget ($)</label><br>
+    <input type="number" name="budget"><br><br>
+
+    <!-- Additional event information -->
+    <label>Additional Information</label><br>
+    <textarea name="message" rows="6"></textarea><br><br>
+
+    <!-- Submit the enquiry to the database -->
+    <button type="submit">
+        Submit Enquiry
+    </button>
+
+</form>
+
+<!-- End of the webpage content -->
+{% endblock %}

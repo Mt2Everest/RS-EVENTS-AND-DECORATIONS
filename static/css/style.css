@@ -1,36 +1,49 @@
 /* Style the whole webpage */
-body{
-
-    margin:0;
-
-    font-family:Arial;
-
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #fff8f4;
 }
 
 /* Style the navigation bar */
-nav{
-
-    background:#333;
-
+nav {
+    background: #333;
+    padding: 15px;
 }
 
 /* Style the navigation links */
-nav a{
-
-    color:white;
-
+nav a {
+    color: white;
+    margin-right: 20px;
+    text-decoration: none;
 }
 
-/* Style the main heading */
-h1{
+/* Style the main page heading */
+h1 {
+    font-size: 48px;
+}
 
-    font-size:48px;
+/* Add spacing around page content */
+main,
+form,
+h1,
+h2,
+p {
+    margin-left: 30px;
+}
 
+/* Style text inputs */
+input,
+select,
+textarea {
+    padding: 10px;
+    width: 280px;
 }
 
 /* Style all buttons */
-button{
-
-    background:gold;
-
+button {
+    background: gold;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
 }

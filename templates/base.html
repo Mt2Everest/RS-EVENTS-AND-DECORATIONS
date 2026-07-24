@@ -1,25 +1,95 @@
-<!-- Connect the CSS file -->
-<link rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}">
+<!DOCTYPE html>
+<html lang="en">
 
-<!-- Website navigation -->
-<nav>
+<head>
 
-    <a href="/">Home</a>
+    <meta charset="UTF-8">
 
-    <a href="#">Services</a>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <a href="#">Gallery</a>
+    <!-- Browser tab title -->
+    <title>
+        {% block title %}
+        RS Events & Decorations
+        {% endblock %}
+    </title>
 
-    <a href="#">About Us</a>
+    <!-- Connect the CSS file -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
 
-    <a href="#">Contact</a>
+</head>
 
-    <a href="#">AI Assistant</a>
+<body>
 
-</nav>
+    <!-- WEBSITE NAVIGATION -->
 
-<!-- Display page content -->
-{% block content %}
+    <nav>
 
-{% endblock %}
+        <a href="{{ url_for('home') }}">
+            Home
+        </a>
+
+        <a href="{{ url_for('services') }}">
+            Services
+        </a>
+
+        <a href="{{ url_for('gallery') }}">
+            Gallery
+        </a>
+
+        <a href="{{ url_for('about') }}">
+            About Us
+        </a>
+
+        <a href="{{ url_for('contact') }}">
+            Contact
+        </a>
+
+        <a href="{{ url_for('assistant') }}">
+            AI Assistant
+        </a>
+
+        <!-- Show owner options when logged in -->
+        {% if session.get("logged_in") %}
+
+            <a href="{{ url_for('dashboard') }}">
+                Dashboard
+            </a>
+
+            <a href="{{ url_for('manage_admins') }}">
+                Manage Admins
+            </a>
+
+            <a href="{{ url_for('logout') }}">
+                Logout
+            </a>
+
+        {% else %}
+
+            <a href="{{ url_for('login') }}">
+                Owner Login
+            </a>
+
+        {% endif %}
+
+    </nav>
+
+
+    <!-- PAGE CONTENT -->
+
+    <main>
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+</body>
+
+</html>

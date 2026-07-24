@@ -1,0 +1,83 @@
+<!-- Use the shared website layout -->
+{% extends "base.html" %}
+
+
+<!-- ==========================
+     BROWSER TAB TITLE
+========================== -->
+
+{% block title %}
+Owner Login
+{% endblock %}
+
+
+<!-- ==========================
+     LOGIN PAGE CONTENT
+========================== -->
+
+{% block content %}
+
+<h1>Owner Login</h1>
+
+<!-- Owner login form -->
+<form method="POST" action="{{ url_for('login') }}">
+
+    <!-- Username field -->
+    <label for="username">Username</label>
+    <br>
+
+    <input
+        type="text"
+        id="username"
+        name="username"
+        required
+        autocomplete="username"
+    >
+
+    <br><br>
+
+    <!-- Password field -->
+    <label for="password">Password</label>
+    <br>
+
+    <input
+        type="password"
+        id="password"
+        name="password"
+        required
+        autocomplete="current-password"
+    >
+
+    <br><br>
+
+    <!-- Remember Me option -->
+    <input
+        type="checkbox"
+        id="remember_me"
+        name="remember_me"
+        value="yes"
+    >
+
+    <label for="remember_me">
+        Remember me for 30 days
+    </label>
+
+    <br><br>
+
+    <!-- Submit login form -->
+    <button type="submit">
+        Login
+    </button>
+
+</form>
+
+<!-- Display incorrect login message -->
+{% if error %}
+
+<p class="error-message">
+    {{ error }}
+</p>
+
+{% endif %}
+
+{% endblock %}

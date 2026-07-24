@@ -1,0 +1,167 @@
+<!-- TEMPLATE SETUP
+     Use base.html as the shared website layout -->
+
+{% extends "base.html" %}
+
+
+<!-- BROWSER TAB TITLE
+     Set the title shown in the browser tab -->
+
+{% block title %}
+Owner Dashboard
+{% endblock %}
+
+
+<!-- PAGE CONTENT
+     Begin the main dashboard content -->
+
+{% block content %}
+
+
+<!-- DASHBOARD HEADING
+     Display the page title and logged-in administrator -->
+
+<h1>Owner Dashboard</h1>
+
+<p>
+    Logged in as:
+    <strong>{{ username }}</strong>
+</p>
+
+
+<!-- DASHBOARD NAVIGATION
+     Provide links to administrator management and logout -->
+
+<p>
+
+    <a href="{{ url_for('manage_admins') }}">
+        Manage Administrators
+    </a>
+
+    |
+
+    <a href="{{ url_for('logout') }}">
+        Logout
+    </a>
+
+</p>
+
+
+<!-- ENQUIRIES SECTION
+     Display all customer enquiries stored in the database -->
+
+<h2>Customer Enquiries</h2>
+
+
+<!-- Check whether enquiry records were sent from app.py -->
+{% if enquiries %}
+
+
+<!-- ENQUIRIES TABLE
+     Display customer and event information in rows -->
+
+<table>
+
+    <!-- Table headings -->
+    <thead>
+
+        <tr>
+
+            <th>Name</th>
+
+            <th>Email</th>
+
+            <th>Phone</th>
+
+            <th>Event Type</th>
+
+            <th>Event Date</th>
+
+            <th>Guests</th>
+
+            <th>Budget</th>
+
+            <th>Message</th>
+
+            <th>Status</th>
+
+        </tr>
+
+    </thead>
+
+
+    <!-- Table records -->
+    <tbody>
+
+        <!-- Repeat one table row for every enquiry -->
+        {% for enquiry in enquiries %}
+
+        <tr>
+
+            <!-- Display the customer's full name -->
+            <td>
+                {{ enquiry["FirstName"] }}
+                {{ enquiry["LastName"] }}
+            </td>
+
+            <!-- Display the customer's email address -->
+            <td>
+                {{ enquiry["Email"] }}
+            </td>
+
+            <!-- Display the customer's phone number -->
+            <td>
+                {{ enquiry["Phone"] }}
+            </td>
+
+            <!-- Display the requested event type -->
+            <td>
+                {{ enquiry["EventType"] }}
+            </td>
+
+            <!-- Display the requested event date -->
+            <td>
+                {{ enquiry["EventDate"] }}
+            </td>
+
+            <!-- Display the expected number of guests -->
+            <td>
+                {{ enquiry["GuestCount"] }}
+            </td>
+
+            <!-- Display the customer's event budget -->
+            <td>
+                ${{ enquiry["Budget"] }}
+            </td>
+
+            <!-- Display the customer's enquiry message -->
+            <td>
+                {{ enquiry["Message"] }}
+            </td>
+
+            <!-- Display the current enquiry status -->
+            <td>
+                {{ enquiry["Status"] }}
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+
+<!-- Display a message when there are no enquiries -->
+{% else %}
+
+<p>
+    No customer enquiries have been submitted yet.
+</p>
+
+{% endif %}
+
+
+<!-- End the main page content -->
+{% endblock %}
