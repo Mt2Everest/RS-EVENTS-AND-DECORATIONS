@@ -1,0 +1,201 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+
+<!-- ==========================
+     BROWSER TITLE
+========================== -->
+
+{% block title %}
+Edit Enquiry
+{% endblock %}
+
+
+<!-- ==========================
+     EDIT ENQUIRY FORM
+========================== -->
+
+{% block content %}
+
+<h1>Edit Enquiry</h1>
+
+<form method="POST">
+
+    <!-- Customer first name -->
+    <label for="firstname">
+        First Name
+    </label>
+
+    <br>
+
+    <input
+        type="text"
+        id="firstname"
+        name="firstname"
+        value="{{ enquiry['FirstName'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Customer last name -->
+    <label for="lastname">
+        Last Name
+    </label>
+
+    <br>
+
+    <input
+        type="text"
+        id="lastname"
+        name="lastname"
+        value="{{ enquiry['LastName'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Customer email -->
+    <label for="email">
+        Email
+    </label>
+
+    <br>
+
+    <input
+        type="email"
+        id="email"
+        name="email"
+        value="{{ enquiry['Email'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Customer phone number -->
+    <label for="phone">
+        Phone
+    </label>
+
+    <br>
+
+    <input
+        type="text"
+        id="phone"
+        name="phone"
+        value="{{ enquiry['Phone'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Requested event type -->
+    <label for="eventtype">
+        Event Type
+    </label>
+
+    <br>
+
+    <input
+        type="text"
+        id="eventtype"
+        name="eventtype"
+        value="{{ enquiry['EventType'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Requested event date -->
+    <label for="eventdate">
+        Event Date
+    </label>
+
+    <br>
+
+    <input
+        type="date"
+        id="eventdate"
+        name="eventdate"
+        value="{{ enquiry['EventDate'] }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- Expected guest number -->
+    <label for="guests">
+        Guest Count
+    </label>
+
+    <br>
+
+    <input
+        type="number"
+        id="guests"
+        name="guests"
+        value="{{ enquiry['GuestCount'] }}"
+        min="1"
+    >
+
+    <br><br>
+
+
+    <!-- Customer budget -->
+    <label for="budget">
+        Budget
+    </label>
+
+    <br>
+
+    <input
+        type="number"
+        id="budget"
+        name="budget"
+        value="{{ enquiry['Budget'] }}"
+        min="0"
+        step="0.01"
+    >
+
+    <br><br>
+
+
+    <!-- Customer message -->
+    <label for="message">
+        Message
+    </label>
+
+    <br>
+
+    <textarea
+        id="message"
+        name="message"
+        rows="6"
+    >{{ enquiry["Message"] }}</textarea>
+
+    <br><br>
+
+
+    <!-- Save all changed information -->
+    <button type="submit">
+        Save Changes
+    </button>
+
+</form>
+
+<br>
+
+<a href="{{ url_for('dashboard') }}">
+    Cancel and Return to Dashboard
+</a>
+
+{% endblock %}

@@ -1,41 +1,85 @@
+# ===========================
 # IMPORTS
+# ===========================
 
 # Import Flask features used by the website
-from flask import Flask, render_template, request, redirect, session, url_for
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session,
+    url_for
+)
 
 # Import database setup functions
-from database import create_database, add_admin
+from database import create_database, add_admin, get_connection
 
-# Import SQLite for database communication
-import sqlite3
-
-# Import OS for file paths
-import os
-
-# Import timedelta for the 30-day Remember Me option
+# Import timedelta for Remember Me
 from datetime import timedelta
 
+# Import wraps for protected route decorators
+from functools import wraps
 
+
+# ===========================
 # APPLICATION SETUP
+# ===========================
 
-# Create the Flask application
 app = Flask(__name__)
 
-# Secret key used to protect login sessions
+# Protect login session cookies
 app.secret_key = "rs-events-private-secret-key-2026"
 
-# Remember permanent sessions for 30 days
+# Remember selected logins for 30 days
 app.permanent_session_lifetime = timedelta(days=30)
 
-# Additional session cookie protection
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Location of the SQLite database
-DATABASE = os.path.join("database", "rs_events.db")
+
+# ===========================
+# LOGIN PROTECTION
+# ===========================
+
+def login_required(route_function):
+
+    @wraps(route_function)
+    def protected_route(*args, **kwargs):
+
+        # Send logged-out users to the login page
+        if session.get("logged_in") is not True:
+            return redirect(url_for("login"))
+
+        return route_function(*args, **kwargs)
+
+    return protected_route
 
 
+def admin_required(route_function):
+
+    @wraps(route_function)
+    def protected_route(*args, **kwargs):
+
+        # Require a login first
+        if session.get("logged_in") is not True:
+            return redirect(url_for("login"))
+
+        # Only Rani's administrator account may continue
+        if (
+            session.get("role") != "admin"
+            or session.get("username") != "rani"
+        ):
+            return redirect(url_for("dashboard"))
+
+        return route_function(*args, **kwargs)
+
+    return protected_route
+
+
+# ===========================
 # PUBLIC WEBSITE PAGES
+# ===========================
 
 @app.route("/")
 def home():
@@ -62,83 +106,107 @@ def assistant():
     return render_template("assistant.html")
 
 
+# ===========================
 # CONTACT AND ENQUIRY FORM
+# ===========================
 
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
 
+    success = None
+    error = None
+
     if request.method == "POST":
 
-        # Collect customer information
-        firstname = request.form["firstname"]
-        lastname = request.form["lastname"]
-        email = request.form["email"]
-        phone = request.form["phone"]
+        # Collect and clean customer information
+        firstname = request.form["firstname"].strip()
+        lastname = request.form["lastname"].strip()
+        email = request.form["email"].strip()
+        phone = request.form["phone"].strip()
 
         # Collect event information
-        eventtype = request.form["eventtype"]
+        eventtype = request.form["eventtype"].strip()
         eventdate = request.form["eventdate"]
         guests = request.form["guests"]
         budget = request.form["budget"]
-        message = request.form["message"]
+        message = request.form["message"].strip()
 
-        # Connect to the database
-        connection = sqlite3.connect(DATABASE)
-        cursor = connection.cursor()
+        # Validate required information
+        if (
+            firstname == ""
+            or lastname == ""
+            or email == ""
+            or phone == ""
+            or eventtype == ""
+            or eventdate == ""
+        ):
+            error = "Please complete all required fields."
 
-        # Save the customer
-        cursor.execute("""
-            INSERT INTO Customers
-            (FirstName, LastName, Email, Phone)
-            VALUES (?, ?, ?, ?)
-        """, (
-            firstname,
-            lastname,
-            email,
-            phone
-        ))
+        else:
 
-        # Store the new CustomerID
-        customer_id = cursor.lastrowid
+            connection = get_connection()
+            cursor = connection.cursor()
 
-        # Save the enquiry
-        cursor.execute("""
-            INSERT INTO Enquiries
-            (
-                CustomerID,
-                EventType,
-                EventDate,
-                GuestCount,
-                Budget,
-                Message,
-                Status
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            customer_id,
-            eventtype,
-            eventdate,
-            guests,
-            budget,
-            message,
-            "Pending"
-        ))
+            # Add the customer
+            cursor.execute("""
+                INSERT INTO Customers
+                (
+                    FirstName,
+                    LastName,
+                    Email,
+                    Phone
+                )
+                VALUES (?, ?, ?, ?)
+            """, (
+                firstname,
+                lastname,
+                email,
+                phone
+            ))
 
-        # Save database changes
-        connection.commit()
-        connection.close()
+            customer_id = cursor.lastrowid
 
-        return redirect(url_for("contact"))
+            # Add the enquiry as a new pending request
+            cursor.execute("""
+                INSERT INTO Enquiries
+                (
+                    CustomerID,
+                    EventType,
+                    EventDate,
+                    GuestCount,
+                    Budget,
+                    Message,
+                    Status
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+            """, (
+                customer_id,
+                eventtype,
+                eventdate,
+                guests,
+                budget,
+                message
+            ))
 
-    return render_template("contact.html")
+            connection.commit()
+            connection.close()
+
+            success = "Your enquiry has been submitted successfully."
+
+    return render_template(
+        "contact.html",
+        success=success,
+        error=error
+    )
 
 
-# OWNER LOGIN
+# ===========================
+# ACCOUNT LOGIN
+# ===========================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
-    # Send logged-in administrators to the dashboard
     if session.get("logged_in") is True:
         return redirect(url_for("dashboard"))
 
@@ -146,19 +214,14 @@ def login():
 
     if request.method == "POST":
 
-        # Collect login information
         username = request.form["username"].strip()
         password = request.form["password"]
-
-        # Check whether Remember Me was selected
         remember_me = request.form.get("remember_me")
 
-        # Connect to the database
-        connection = sqlite3.connect(DATABASE)
-        connection.row_factory = sqlite3.Row
+        connection = get_connection()
         cursor = connection.cursor()
 
-        # Search for matching administrator details
+        # Check the submitted account details
         cursor.execute("""
             SELECT *
             FROM Admins
@@ -169,52 +232,69 @@ def login():
             password
         ))
 
-        admin = cursor.fetchone()
+        account = cursor.fetchone()
 
         connection.close()
 
-        # Login successful
-        if admin is not None:
+        if account is not None:
 
-            # Remove any previous session information
             session.clear()
 
-            # Save the administrator's login session
             session["logged_in"] = True
-            session["username"] = admin["Username"]
+            session["username"] = account["Username"]
+            session["full_name"] = account["FullName"]
+            session["role"] = account["Role"]
 
-            # Remember login for 30 days when selected
+            # Keep the login for 30 days when selected
             session.permanent = remember_me == "yes"
 
             return redirect(url_for("dashboard"))
 
-        # Login unsuccessful
         error = "Incorrect username or password."
 
-    return render_template("login.html", error=error)
+    return render_template(
+        "login.html",
+        error=error
+    )
 
 
-# PROTECTED OWNER DASHBOARD
+# ===========================
+# LOGOUT
+# ===========================
+
+@app.route("/logout")
+@login_required
+def logout():
+
+    session.clear()
+
+    return redirect(url_for("login"))
+
+
+# ===========================
+# ACTIVE ENQUIRY DASHBOARD
+# ===========================
 
 @app.route("/dashboard")
+@login_required
 def dashboard():
 
-    # Block anyone who is not logged in
-    if session.get("logged_in") is not True:
-        return redirect(url_for("login"))
-
-    # Connect to the database
-    connection = sqlite3.connect(DATABASE)
-    connection.row_factory = sqlite3.Row
+    connection = get_connection()
     cursor = connection.cursor()
 
-    # Retrieve all customer enquiries
+    # Only retrieve active pending enquiries
     cursor.execute("""
-        SELECT *
-        FROM Customers
-        INNER JOIN Enquiries
-        ON Customers.CustomerID = Enquiries.CustomerID
-        ORDER BY EnquiryID DESC
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.Status = 'Pending'
+        ORDER BY Enquiries.EnquiryID DESC
     """)
 
     enquiries = cursor.fetchall()
@@ -224,33 +304,391 @@ def dashboard():
     return render_template(
         "dashboard.html",
         enquiries=enquiries,
-        username=session.get("username")
+        username=session.get("username"),
+        role=session.get("role")
     )
 
 
-# ADMIN MANAGEMENT
+# ===========================
+# EDIT ENQUIRY
+# ===========================
 
-@app.route("/admins", methods=["GET", "POST"])
-def manage_admins():
+@app.route("/enquiries/<int:enquiry_id>/edit", methods=["GET", "POST"])
+@admin_required
+def edit_enquiry(enquiry_id):
 
-    # Block anyone who is not logged in
-    if session.get("logged_in") is not True:
-        return redirect(url_for("login"))
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    if request.method == "POST":
+
+        firstname = request.form["firstname"].strip()
+        lastname = request.form["lastname"].strip()
+        email = request.form["email"].strip()
+        phone = request.form["phone"].strip()
+
+        eventtype = request.form["eventtype"].strip()
+        eventdate = request.form["eventdate"]
+        guests = request.form["guests"]
+        budget = request.form["budget"]
+        message = request.form["message"].strip()
+
+        # Find the customer connected to this enquiry
+        cursor.execute("""
+            SELECT CustomerID
+            FROM Enquiries
+            WHERE EnquiryID = ?
+        """, (enquiry_id,))
+
+        enquiry_record = cursor.fetchone()
+
+        if enquiry_record is None:
+
+            connection.close()
+
+            return redirect(url_for("dashboard"))
+
+        customer_id = enquiry_record["CustomerID"]
+
+        # Update customer details
+        cursor.execute("""
+            UPDATE Customers
+            SET
+                FirstName = ?,
+                LastName = ?,
+                Email = ?,
+                Phone = ?
+            WHERE CustomerID = ?
+        """, (
+            firstname,
+            lastname,
+            email,
+            phone,
+            customer_id
+        ))
+
+        # Update event details
+        cursor.execute("""
+            UPDATE Enquiries
+            SET
+                EventType = ?,
+                EventDate = ?,
+                GuestCount = ?,
+                Budget = ?,
+                Message = ?,
+                UpdatedAt = CURRENT_TIMESTAMP
+            WHERE EnquiryID = ?
+            AND Status = 'Pending'
+        """, (
+            eventtype,
+            eventdate,
+            guests,
+            budget,
+            message,
+            enquiry_id
+        ))
+
+        connection.commit()
+        connection.close()
+
+        return redirect(url_for("dashboard"))
+
+    # Retrieve the enquiry for the editing form
+    cursor.execute("""
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.EnquiryID = ?
+        AND Enquiries.Status = 'Pending'
+    """, (enquiry_id,))
+
+    enquiry = cursor.fetchone()
+
+    connection.close()
+
+    if enquiry is None:
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "edit_enquiry.html",
+        enquiry=enquiry
+    )
+
+
+# ===========================
+# COMPLETE ENQUIRY
+# ===========================
+
+@app.route("/enquiries/<int:enquiry_id>/complete", methods=["POST"])
+@admin_required
+def complete_enquiry(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Move the enquiry into the archive
+    cursor.execute("""
+        UPDATE Enquiries
+        SET
+            Status = 'Completed',
+            UpdatedAt = CURRENT_TIMESTAMP,
+            DeletedAt = NULL
+        WHERE EnquiryID = ?
+        AND Status = 'Pending'
+    """, (enquiry_id,))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("dashboard"))
+
+
+# ===========================
+# ARCHIVE
+# ===========================
+
+@app.route("/archive")
+@admin_required
+def archive():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.Status = 'Completed'
+        ORDER BY Enquiries.UpdatedAt DESC
+    """)
+
+    enquiries = cursor.fetchall()
+
+    connection.close()
+
+    return render_template(
+        "archive.html",
+        enquiries=enquiries
+    )
+
+
+# ===========================
+# RESTORE ARCHIVED ENQUIRY
+# ===========================
+
+@app.route("/enquiries/<int:enquiry_id>/restore-archive", methods=["POST"])
+@admin_required
+def restore_archived_enquiry(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE Enquiries
+        SET
+            Status = 'Pending',
+            UpdatedAt = CURRENT_TIMESTAMP
+        WHERE EnquiryID = ?
+        AND Status = 'Completed'
+    """, (enquiry_id,))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("archive"))
+
+
+# ===========================
+# MOVE TO RECENTLY DELETED
+# ===========================
+
+@app.route("/enquiries/<int:enquiry_id>/delete", methods=["POST"])
+@admin_required
+def delete_enquiry(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Soft-delete the enquiry instead of immediately removing it
+    cursor.execute("""
+        UPDATE Enquiries
+        SET
+            Status = 'Deleted',
+            DeletedAt = CURRENT_TIMESTAMP,
+            UpdatedAt = CURRENT_TIMESTAMP
+        WHERE EnquiryID = ?
+        AND Status != 'Deleted'
+    """, (enquiry_id,))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("dashboard"))
+
+
+# ===========================
+# RECENTLY DELETED
+# ===========================
+
+@app.route("/recently-deleted")
+@admin_required
+def recently_deleted():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.Status = 'Deleted'
+        ORDER BY Enquiries.DeletedAt DESC
+    """)
+
+    enquiries = cursor.fetchall()
+
+    connection.close()
+
+    return render_template(
+        "recently_deleted.html",
+        enquiries=enquiries
+    )
+
+
+# ===========================
+# RESTORE DELETED ENQUIRY
+# ===========================
+
+@app.route("/enquiries/<int:enquiry_id>/restore", methods=["POST"])
+@admin_required
+def restore_deleted_enquiry(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE Enquiries
+        SET
+            Status = 'Pending',
+            DeletedAt = NULL,
+            UpdatedAt = CURRENT_TIMESTAMP
+        WHERE EnquiryID = ?
+        AND Status = 'Deleted'
+    """, (enquiry_id,))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("recently_deleted"))
+
+
+# ===========================
+# PERMANENTLY DELETE ENQUIRY
+# ===========================
+
+@app.route("/enquiries/<int:enquiry_id>/permanent-delete", methods=["POST"])
+@admin_required
+def permanently_delete_enquiry(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Find the connected customer before deleting the enquiry
+    cursor.execute("""
+        SELECT CustomerID
+        FROM Enquiries
+        WHERE EnquiryID = ?
+        AND Status = 'Deleted'
+    """, (enquiry_id,))
+
+    enquiry = cursor.fetchone()
+
+    if enquiry is not None:
+
+        customer_id = enquiry["CustomerID"]
+
+        # Remove related booking records first
+        cursor.execute("""
+            DELETE FROM Bookings
+            WHERE EnquiryID = ?
+        """, (enquiry_id,))
+
+        # Permanently remove the enquiry
+        cursor.execute("""
+            DELETE FROM Enquiries
+            WHERE EnquiryID = ?
+            AND Status = 'Deleted'
+        """, (enquiry_id,))
+
+        # Check whether the customer has any remaining enquiries
+        cursor.execute("""
+            SELECT COUNT(*) AS EnquiryCount
+            FROM Enquiries
+            WHERE CustomerID = ?
+        """, (customer_id,))
+
+        remaining = cursor.fetchone()["EnquiryCount"]
+
+        # Remove unused customer details
+        if remaining == 0:
+
+            cursor.execute("""
+                DELETE FROM Customers
+                WHERE CustomerID = ?
+            """, (customer_id,))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("recently_deleted"))
+
+
+# ===========================
+# EMPLOYEE MANAGEMENT
+# ===========================
+
+@app.route("/employees", methods=["GET", "POST"])
+@admin_required
+def manage_employees():
 
     error = None
     success = None
 
-    # Add a new administrator
     if request.method == "POST":
 
-        username = request.form["username"].strip()
-        password = request.form["password"]
         full_name = request.form["full_name"].strip()
         email = request.form["email"].strip()
+        username = request.form["username"].strip()
+        password = request.form["password"]
 
-        # Basic backend validation
-        if username == "" or password == "" or full_name == "" or email == "":
-            error = "All administrator fields are required."
+        if (
+            full_name == ""
+            or email == ""
+            or username == ""
+            or password == ""
+        ):
+            error = "All employee fields are required."
+
+        elif username.lower() == "rani":
+            error = "The username rani is reserved."
 
         elif len(username) < 3:
             error = "The username must contain at least 3 characters."
@@ -260,28 +698,36 @@ def manage_admins():
 
         else:
 
-            connection = sqlite3.connect(DATABASE)
+            connection = get_connection()
             cursor = connection.cursor()
 
-            # Check whether the username already exists
             cursor.execute("""
-                SELECT Username
+                SELECT AdminID
                 FROM Admins
                 WHERE Username = ?
-            """, (username,))
+                OR Email = ?
+            """, (
+                username,
+                email
+            ))
 
-            existing_admin = cursor.fetchone()
+            existing_account = cursor.fetchone()
 
-            if existing_admin is not None:
-                error = "That username is already being used."
+            if existing_account is not None:
+                error = "That username or email is already being used."
 
             else:
 
-                # Add the new administrator
                 cursor.execute("""
                     INSERT INTO Admins
-                    (Username, Password, FullName, Email)
-                    VALUES (?, ?, ?, ?)
+                    (
+                        Username,
+                        Password,
+                        FullName,
+                        Email,
+                        Role
+                    )
+                    VALUES (?, ?, ?, ?, 'employee')
                 """, (
                     username,
                     password,
@@ -291,113 +737,68 @@ def manage_admins():
 
                 connection.commit()
 
-                success = "Administrator added successfully."
+                success = "Employee added successfully."
 
             connection.close()
 
-    # Retrieve the administrator list
-    connection = sqlite3.connect(DATABASE)
-    connection.row_factory = sqlite3.Row
+    connection = get_connection()
     cursor = connection.cursor()
 
+    # Never include Rani in the removable employee list
     cursor.execute("""
-        SELECT Username, FullName, Email
+        SELECT *
         FROM Admins
+        WHERE Role = 'employee'
+        AND Username != 'rani'
         ORDER BY FullName ASC
     """)
 
-    admins = cursor.fetchall()
+    employees = cursor.fetchall()
 
     connection.close()
 
     return render_template(
-        "admins.html",
-        admins=admins,
+        "employees.html",
+        employees=employees,
         error=error,
-        success=success,
-        current_username=session.get("username")
+        success=success
     )
 
 
-# REMOVE ADMINISTRATOR
+# ===========================
+# REMOVE EMPLOYEE
+# ===========================
 
-@app.route("/admins/remove/<username>", methods=["POST"])
-def remove_admin(username):
+@app.route("/employees/<int:employee_id>/remove", methods=["POST"])
+@admin_required
+def remove_employee(employee_id):
 
-    # Block anyone who is not logged in
-    if session.get("logged_in") is not True:
-        return redirect(url_for("login"))
-
-    current_username = session.get("username")
-
-    # Do not allow the logged-in administrator to delete themselves
-    if username == current_username:
-        return redirect(
-            url_for(
-                "manage_admins",
-                remove_error="You cannot remove your own administrator account."
-            )
-        )
-
-    connection = sqlite3.connect(DATABASE)
+    connection = get_connection()
     cursor = connection.cursor()
 
-    # Count how many administrator accounts exist
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM Admins
-    """)
-
-    admin_count = cursor.fetchone()[0]
-
-    # Make sure at least one administrator remains
-    if admin_count <= 1:
-
-        connection.close()
-
-        return redirect(
-            url_for(
-                "manage_admins",
-                remove_error="The final administrator account cannot be removed."
-            )
-        )
-
-    # Remove the selected administrator
+    # Only employee accounts can be removed
     cursor.execute("""
         DELETE FROM Admins
-        WHERE Username = ?
-    """, (username,))
+        WHERE AdminID = ?
+        AND Role = 'employee'
+        AND Username != 'rani'
+    """, (employee_id,))
 
     connection.commit()
     connection.close()
 
-    return redirect(
-        url_for(
-            "manage_admins",
-            removed="Administrator removed successfully."
-        )
-    )
+    return redirect(url_for("manage_employees"))
 
 
-# OWNER LOGOUT
-
-@app.route("/logout")
-def logout():
-
-    # Delete all login session information
-    session.clear()
-
-    return redirect(url_for("login"))
-
-
+# ===========================
 # START APPLICATION
+# ===========================
 
 if __name__ == "__main__":
 
-    # Create database tables if they do not exist
     create_database()
 
-    # Create the default administrator account
+    # Rani is always recreated or maintained as supreme admin
     add_admin(
         "rani",
         "password123",
@@ -405,5 +806,4 @@ if __name__ == "__main__":
         "rani@rsevents.com"
     )
 
-    # Start the Flask development server
     app.run(debug=True)

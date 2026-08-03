@@ -1,0 +1,136 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+
+<!-- ==========================
+     BROWSER TITLE
+========================== -->
+
+{% block title %}
+Recently Deleted
+{% endblock %}
+
+
+<!-- ==========================
+     RECENTLY DELETED ENQUIRIES
+========================== -->
+
+{% block content %}
+
+<h1>Recently Deleted</h1>
+
+<p>
+    Items remain here until Rani restores or permanently deletes them.
+</p>
+
+{% if enquiries %}
+
+<table>
+
+    <thead>
+
+        <tr>
+
+            <th>Customer</th>
+
+            <th>Event</th>
+
+            <th>Date</th>
+
+            <th>Deleted</th>
+
+            <th>Message</th>
+
+            <th>Actions</th>
+
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        <!-- Display each soft-deleted enquiry -->
+        {% for enquiry in enquiries %}
+
+        <tr>
+
+            <td>
+                {{ enquiry["FirstName"] }}
+                {{ enquiry["LastName"] }}
+            </td>
+
+            <td>
+                {{ enquiry["EventType"] }}
+            </td>
+
+            <td>
+                {{ enquiry["EventDate"] }}
+            </td>
+
+            <td>
+                {{ enquiry["DeletedAt"] }}
+            </td>
+
+            <td>
+                {{ enquiry["Message"] }}
+            </td>
+
+            <td>
+
+                <!-- Restore the enquiry to the active dashboard -->
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'restore_deleted_enquiry',
+                        enquiry_id=enquiry['EnquiryID']
+                    ) }}"
+                >
+
+                    <button type="submit">
+                        Restore
+                    </button>
+
+                </form>
+
+                <br>
+
+                <!-- Permanently remove the enquiry from the database -->
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'permanently_delete_enquiry',
+                        enquiry_id=enquiry['EnquiryID']
+                    ) }}"
+                    onsubmit="return confirm(
+                        'Permanently delete this enquiry? This cannot be undone.'
+                    );"
+                >
+
+                    <button type="submit">
+                        Permanently Delete
+                    </button>
+
+                </form>
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% else %}
+
+<p>
+    Recently Deleted is empty.
+</p>
+
+{% endif %}
+
+{% endblock %}

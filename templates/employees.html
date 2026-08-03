@@ -1,0 +1,222 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+
+<!-- ==========================
+     BROWSER TITLE
+========================== -->
+
+{% block title %}
+Manage Employees
+{% endblock %}
+
+
+<!-- ==========================
+     EMPLOYEE MANAGEMENT
+========================== -->
+
+{% block content %}
+
+<h1>Manage Employees</h1>
+
+<p>
+    Employee accounts can only view active dashboard enquiries.
+</p>
+
+
+<!-- Display employee creation errors -->
+{% if error %}
+
+<p class="error-message">
+    {{ error }}
+</p>
+
+{% endif %}
+
+
+<!-- Display employee creation success -->
+{% if success %}
+
+<p class="success-message">
+    {{ success }}
+</p>
+
+{% endif %}
+
+
+<!-- ==========================
+     ADD EMPLOYEE FORM
+========================== -->
+
+<section>
+
+    <h2>Add Employee</h2>
+
+    <form method="POST">
+
+        <label for="full_name">
+            Full Name
+        </label>
+
+        <br>
+
+        <input
+            type="text"
+            id="full_name"
+            name="full_name"
+            required
+        >
+
+        <br><br>
+
+
+        <label for="email">
+            Email
+        </label>
+
+        <br>
+
+        <input
+            type="email"
+            id="email"
+            name="email"
+            required
+        >
+
+        <br><br>
+
+
+        <label for="username">
+            Username
+        </label>
+
+        <br>
+
+        <input
+            type="text"
+            id="username"
+            name="username"
+            minlength="3"
+            required
+        >
+
+        <br><br>
+
+
+        <label for="password">
+            Password
+        </label>
+
+        <br>
+
+        <input
+            type="password"
+            id="password"
+            name="password"
+            minlength="6"
+            required
+        >
+
+        <br><br>
+
+
+        <button type="submit">
+            Add Employee
+        </button>
+
+    </form>
+
+</section>
+
+
+<!-- ==========================
+     EXISTING EMPLOYEES
+========================== -->
+
+<section>
+
+    <h2>Current Employees</h2>
+
+    {% if employees %}
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Full Name</th>
+
+                <th>Username</th>
+
+                <th>Email</th>
+
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            <!-- Display one row for every employee -->
+            {% for employee in employees %}
+
+            <tr>
+
+                <td>
+                    {{ employee["FullName"] }}
+                </td>
+
+                <td>
+                    {{ employee["Username"] }}
+                </td>
+
+                <td>
+                    {{ employee["Email"] }}
+                </td>
+
+                <td>
+
+                    <!-- Remove only employee accounts -->
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'remove_employee',
+                            employee_id=employee['AdminID']
+                        ) }}"
+                        onsubmit="return confirm(
+                            'Are you sure you want to remove this employee?'
+                        );"
+                    >
+
+                        <button type="submit">
+                            Remove Employee
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    {% else %}
+
+    <p>
+        No employee accounts have been added.
+    </p>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

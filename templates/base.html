@@ -10,14 +10,14 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <!-- Browser tab title -->
+    <!-- Display the current page title -->
     <title>
         {% block title %}
         RS Events & Decorations
         {% endblock %}
     </title>
 
-    <!-- Connect the CSS file -->
+    <!-- Connect the website stylesheet -->
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='css/style.css') }}"
@@ -27,44 +27,49 @@
 
 <body>
 
-    <!-- WEBSITE NAVIGATION -->
+    <!-- ==========================
+         WEBSITE NAVIGATION
+    ========================== -->
 
     <nav>
 
-        <a href="{{ url_for('home') }}">
-            Home
-        </a>
+        <a href="{{ url_for('home') }}">Home</a>
 
-        <a href="{{ url_for('services') }}">
-            Services
-        </a>
+        <a href="{{ url_for('services') }}">Services</a>
 
-        <a href="{{ url_for('gallery') }}">
-            Gallery
-        </a>
+        <a href="{{ url_for('gallery') }}">Gallery</a>
 
-        <a href="{{ url_for('about') }}">
-            About Us
-        </a>
+        <a href="{{ url_for('about') }}">About Us</a>
 
-        <a href="{{ url_for('contact') }}">
-            Contact
-        </a>
+        <a href="{{ url_for('contact') }}">Contact</a>
 
-        <a href="{{ url_for('assistant') }}">
-            AI Assistant
-        </a>
+        <a href="{{ url_for('assistant') }}">AI Assistant</a>
 
-        <!-- Show owner options when logged in -->
+
+        <!-- Display account pages after login -->
         {% if session.get("logged_in") %}
 
             <a href="{{ url_for('dashboard') }}">
                 Dashboard
             </a>
 
-            <a href="{{ url_for('manage_admins') }}">
-                Manage Admins
-            </a>
+
+            <!-- Only Rani can access management pages -->
+            {% if session.get("role") == "admin" %}
+
+                <a href="{{ url_for('archive') }}">
+                    Archive
+                </a>
+
+                <a href="{{ url_for('recently_deleted') }}">
+                    Recently Deleted
+                </a>
+
+                <a href="{{ url_for('manage_employees') }}">
+                    Employees
+                </a>
+
+            {% endif %}
 
             <a href="{{ url_for('logout') }}">
                 Logout
@@ -73,7 +78,7 @@
         {% else %}
 
             <a href="{{ url_for('login') }}">
-                Owner Login
+                Staff Login
             </a>
 
         {% endif %}
@@ -81,7 +86,9 @@
     </nav>
 
 
-    <!-- PAGE CONTENT -->
+    <!-- ==========================
+         PAGE CONTENT
+    ========================== -->
 
     <main>
 
