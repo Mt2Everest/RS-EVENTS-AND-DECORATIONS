@@ -632,3 +632,25 @@ def update_customer_enquiry(
     connection.close()
 
     return True
+# ===========================
+# INVENTORY AVAILABILITY
+# ===========================
+
+def get_inventory_availability(event_date):
+    # Return stock still available on a particular event date
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT Inventory.ItemID, Inventory.ItemName, Inventory.Category,
+               Inventory.Quantity, Inventory.AvailableQuantity, Inventory.HirePrice,
+               MAX(0, Inventory.AvailableQuantity - COALESCE(SUM(InventoryReservations.QuantityReserved), 0)) AS DateAvailableQuantity
+        FROM Inventory
+        LEFT JOIN InventoryReservations
+          ON Inventory.ItemID = InventoryReservations.ItemID
+         AND InventoryReservations.EventDate = ?
+        GROUP BY Inventory.ItemID
+        ORDER BY Inventory.Category, Inventory.ItemName
+    """, (event_date,))
+    rows = cursor.fetchall()
+    connection.close()
+    return [dict(row) for row in rows]

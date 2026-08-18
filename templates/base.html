@@ -53,6 +53,10 @@
                 Dashboard
             </a>
 
+            <a href="{{ url_for('inventory') }}">
+                Inventory
+            </a>
+
 
             <!-- Only Rani can access management pages -->
             {% if session.get("role") == "admin" %}

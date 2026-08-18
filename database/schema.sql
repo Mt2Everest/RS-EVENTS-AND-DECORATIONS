@@ -123,3 +123,13 @@ CREATE TABLE IF NOT EXISTS Bookings (
         REFERENCES Enquiries(EnquiryID)
 
 );
+-- Store inventory allocated to enquiries on particular event dates
+CREATE TABLE IF NOT EXISTS InventoryReservations (
+    ReservationID INTEGER PRIMARY KEY AUTOINCREMENT,
+    EnquiryID INTEGER NOT NULL,
+    ItemID INTEGER NOT NULL,
+    EventDate TEXT NOT NULL,
+    QuantityReserved INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (EnquiryID) REFERENCES Enquiries(EnquiryID),
+    FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID)
+);

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}
+Inventory Management
+{% endblock %}
+
+{% block content %}
+
+<!-- ==========================
+     INVENTORY PAGE HEADING
+========================== -->
+
+<h1>Inventory Management</h1>
+
+<p>
+    View decoration items, quantities, availability and hire prices.
+</p>
+
+
+<!-- ==========================
+     STATUS MESSAGES
+========================== -->
+
+{% if error %}
+    <p class="error-message">{{ error }}</p>
+{% endif %}
+
+{% if success %}
+    <p class="success-message">{{ success }}</p>
+{% endif %}
+
+
+<!-- ==========================
+     ADD INVENTORY ITEM - RANI
+========================== -->
+
+{% if session.get("role") == "admin" and session.get("username") == "rani" %}
+
+    <section class="inventory-form-section">
+
+        <h2>Add Inventory Item</h2>
+
+        <form method="POST">
+
+            <!-- Enter the decoration item name -->
+            <label>Item Name</label><br>
+            <input
+                type="text"
+                name="item_name"
+                required
+            ><br><br>
+
+            <!-- Enter the inventory category -->
+            <label>Category</label><br>
+            <input
+                type="text"
+                name="category"
+                placeholder="Example: Backdrops"
+                required
+            ><br><br>
+
+            <!-- Enter the total number owned -->
+            <label>Total Quantity</label><br>
+            <input
+                type="number"
+                name="quantity"
+                min="0"
+                required
+            ><br><br>
+
+            <!-- Enter the hire price for the item -->
+            <label>Hire Price ($)</label><br>
+            <input
+                type="number"
+                name="hire_price"
+                min="0"
+                step="0.01"
+                required
+            ><br><br>
+
+            <button type="submit">
+                Add Inventory Item
+            </button>
+
+        </form>
+
+    </section>
+
+{% endif %}
+
+
+<!-- ==========================
+     INVENTORY TABLE
+========================== -->
+
+<section class="inventory-table-section">
+
+    <h2>Current Inventory</h2>
+
+    {% if inventory_items %}
+
+        <table border="1" cellpadding="10">
+
+            <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Total Quantity</th>
+                <th>Available</th>
+                <th>Hire Price</th>
+
+                {% if session.get("role") == "admin" and session.get("username") == "rani" %}
+                    <th>Rani Controls</th>
+                {% endif %}
+            </tr>
+
+            {% for item in inventory_items %}
+
+                <tr>
+
+                    {% if session.get("role") == "admin" and session.get("username") == "rani" %}
+
+                        <!-- Rani can directly edit inventory information -->
+                        <form
+                            method="POST"
+                            action="{{ url_for('edit_inventory_item', item_id=item.ItemID) }}"
+                        >
+
+                            <td>
+                                <input
+                                    type="text"
+                                    name="item_name"
+                                    value="{{ item.ItemName }}"
+                                    required
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="text"
+                                    name="category"
+                                    value="{{ item.Category }}"
+                                    required
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    value="{{ item.Quantity }}"
+                                    min="0"
+                                    required
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="available_quantity"
+                                    value="{{ item.AvailableQuantity }}"
+                                    min="0"
+                                    max="{{ item.Quantity }}"
+                                    required
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="hire_price"
+                                    value="{{ item.HirePrice or 0 }}"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                >
+                            </td>
+
+                            <td>
+                                <button type="submit">
+                                    Save Changes
+                                </button>
+                            </td>
+
+                        </form>
+
+                        <td style="display:none;"></td>
+
+                    {% else %}
+
+                        <!-- Employees can only view inventory information -->
+                        <td>{{ item.ItemName }}</td>
+                        <td>{{ item.Category }}</td>
+                        <td>{{ item.Quantity }}</td>
+                        <td>{{ item.AvailableQuantity }}</td>
+                        <td>${{ "%.2f"|format(item.HirePrice or 0) }}</td>
+
+                    {% endif %}
+
+                </tr>
+
+                {% if session.get("role") == "admin" and session.get("username") == "rani" %}
+
+                    <tr>
+                        <td colspan="6">
+                            <form
+                                method="POST"
+                                action="{{ url_for('delete_inventory_item', item_id=item.ItemID) }}"
+                                onsubmit="return confirm('Delete this inventory item permanently?');"
+                            >
+                                <button type="submit">
+                                    Delete Item
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </table>
+
+    {% else %}
+
+        <p>No inventory items have been added yet.</p>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}

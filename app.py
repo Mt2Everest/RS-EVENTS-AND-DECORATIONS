@@ -18,7 +18,10 @@ from database import (
     create_database,
     add_admin,
     get_connection,
-    create_ai_enquiry
+    create_ai_enquiry,
+    find_customer_enquiry,
+    update_customer_enquiry,
+    get_inventory_availability
 )
 
 # Import AI Booking Assistant functions
@@ -28,6 +31,8 @@ from ai_assistant import (
     update_draft,
     find_missing_field,
     create_confirmation_summary,
+    recommend_inventory,
+    format_inventory_suggestions,
     FIELD_QUESTIONS
 )
 
@@ -423,6 +428,27 @@ def assistant_message():
 
 
         # ===========================
+        # CHECK INVENTORY AND SUGGEST SIMILAR ITEMS
+        # ===========================
+
+        # Read stock availability for the customer's selected date
+        inventory_items = get_inventory_availability(draft["event_date"])
+
+        # Use AI meaning/synonym matching rather than exact item-name matching
+        inventory_matches = recommend_inventory(
+            draft["requirements"],
+            inventory_items
+        )
+
+        # Create the suggestion message shown to the customer
+        inventory_message = format_inventory_suggestions(
+            inventory_matches,
+            draft["event_date"]
+        )
+
+        session["inventory_suggestions"] = inventory_matches
+
+        # ===========================
         # ASK FOR OPTIONAL INFORMATION
         # ===========================
 
@@ -432,6 +458,8 @@ def assistant_message():
             "reply":
                 "Thank you, I now have all of the required "
                 "information for your enquiry.\n\n"
+                + inventory_message
+                + "\n\n"
                 "Is there any additional information you would "
                 "like to include? Please state it and I will refer "
                 "it to the organiser for you! If you'd like the "
@@ -1357,6 +1385,189 @@ def remove_employee(employee_id):
         url_for("manage_employees")
     )
 
+
+
+# ===========================
+# INVENTORY MANAGEMENT
+# ===========================
+
+@app.route("/inventory", methods=["GET", "POST"])
+@login_required
+def inventory():
+
+    error = None
+    success = None
+
+    # Only Rani can add new inventory items
+    if request.method == "POST":
+
+        if (
+            session.get("role") != "admin"
+            or session.get("username") != "rani"
+        ):
+            return redirect(url_for("inventory"))
+
+        item_name = request.form.get("item_name", "").strip()
+        category = request.form.get("category", "").strip()
+        quantity_text = request.form.get("quantity", "").strip()
+        hire_price_text = request.form.get("hire_price", "").strip()
+
+        # Validate all required inventory information
+        try:
+            quantity = int(quantity_text)
+            hire_price = float(hire_price_text)
+
+            if quantity < 0 or hire_price < 0:
+                raise ValueError
+
+        except ValueError:
+            error = "Quantity and hire price must be valid positive numbers."
+
+        if item_name == "" or category == "":
+            error = "Item name and category are required."
+
+        if error is None:
+
+            connection = get_connection()
+            cursor = connection.cursor()
+
+            # Add the new item and make the full quantity available
+            cursor.execute("""
+                INSERT INTO Inventory
+                (
+                    ItemName,
+                    Category,
+                    Quantity,
+                    AvailableQuantity,
+                    HirePrice
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                item_name,
+                category,
+                quantity,
+                quantity,
+                hire_price
+            ))
+
+            connection.commit()
+            connection.close()
+
+            success = "Inventory item added successfully."
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Display inventory alphabetically by category and item name
+    cursor.execute("""
+        SELECT *
+        FROM Inventory
+        ORDER BY Category ASC, ItemName ASC
+    """)
+
+    inventory_items = cursor.fetchall()
+    connection.close()
+
+    return render_template(
+        "inventory.html",
+        inventory_items=inventory_items,
+        error=error,
+        success=success,
+        role=session.get("role")
+    )
+
+
+# ===========================
+# EDIT INVENTORY ITEM
+# ===========================
+
+@app.route(
+    "/inventory/<int:item_id>/edit",
+    methods=["POST"]
+)
+@admin_required
+def edit_inventory_item(item_id):
+
+    item_name = request.form.get("item_name", "").strip()
+    category = request.form.get("category", "").strip()
+    quantity_text = request.form.get("quantity", "").strip()
+    available_text = request.form.get("available_quantity", "").strip()
+    hire_price_text = request.form.get("hire_price", "").strip()
+
+    try:
+        quantity = int(quantity_text)
+        available_quantity = int(available_text)
+        hire_price = float(hire_price_text)
+
+        # Prevent impossible inventory values
+        if (
+            quantity < 0
+            or available_quantity < 0
+            or available_quantity > quantity
+            or hire_price < 0
+        ):
+            raise ValueError
+
+    except ValueError:
+        return redirect(url_for("inventory"))
+
+    if item_name == "" or category == "":
+        return redirect(url_for("inventory"))
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Update the selected inventory item
+    cursor.execute("""
+        UPDATE Inventory
+        SET
+            ItemName = ?,
+            Category = ?,
+            Quantity = ?,
+            AvailableQuantity = ?,
+            HirePrice = ?
+        WHERE ItemID = ?
+    """, (
+        item_name,
+        category,
+        quantity,
+        available_quantity,
+        hire_price,
+        item_id
+    ))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("inventory"))
+
+
+# ===========================
+# DELETE INVENTORY ITEM
+# ===========================
+
+@app.route(
+    "/inventory/<int:item_id>/delete",
+    methods=["POST"]
+)
+@admin_required
+def delete_inventory_item(item_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    # Permanently remove the selected inventory item
+    cursor.execute("""
+        DELETE FROM Inventory
+        WHERE ItemID = ?
+    """, (
+        item_id,
+    ))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("inventory"))
 
 # ===========================
 # START APPLICATION

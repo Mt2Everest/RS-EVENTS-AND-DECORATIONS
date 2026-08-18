@@ -725,3 +725,75 @@ def create_confirmation_summary(draft):
 
 
     return summary
+# ===========================
+# AI INVENTORY MATCHING
+# ===========================
+
+def recommend_inventory(requirements, inventory_items):
+    # Match natural descriptions and synonyms to real inventory only
+    if not inventory_items:
+        return []
+
+    catalogue = [{
+        "item_id": item["ItemID"],
+        "item_name": item["ItemName"],
+        "category": item["Category"],
+        "available_quantity": item["DateAvailableQuantity"],
+        "hire_price": item["HirePrice"]
+    } for item in inventory_items]
+
+    system_prompt = """
+Match the customer's event-decoration request to the supplied inventory.
+Use meaning, style and synonyms, not exact wording only. For example, a request
+for 'royal looking chairs' may match fancy wooden chairs and fancy metal chairs.
+Recommend multiple sensible alternatives when appropriate. Never invent items.
+Only select catalogue items with available_quantity greater than 0.
+Return JSON only: {"matches":[{"item_id":1,"reason":"short reason"}]}.
+Return at most 5 matches. If nothing is similar, return {"matches":[]}.
+"""
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps({"requirements": requirements, "inventory": catalogue})}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.2
+    )
+
+    result = json.loads(response.choices[0].message.content)
+    lookup = {item["ItemID"]: item for item in inventory_items}
+    matches = []
+
+    for suggestion in result.get("matches", []):
+        item = lookup.get(suggestion.get("item_id"))
+        if item and item["DateAvailableQuantity"] > 0:
+            matches.append({
+                "item_name": item["ItemName"],
+                "category": item["Category"],
+                "available_quantity": item["DateAvailableQuantity"],
+                "hire_price": item["HirePrice"],
+                "reason": suggestion.get("reason", "Similar to your request")
+            })
+    return matches
+
+
+def format_inventory_suggestions(matches, event_date):
+    # Turn inventory matches into a customer-friendly chatbot response
+    if not matches:
+        return (
+            f"I couldn't find a close inventory match currently available for {event_date}. "
+            "The organiser may still be able to arrange something suitable."
+        )
+
+    lines = [f"Based on what you described, you may like these items available for {event_date}:"]
+    for match in matches:
+        price = match["hire_price"]
+        price_text = f"${price:.2f}" if price is not None else "price on request"
+        lines.append(
+            f"- {match['item_name']} ({match['category'] or 'General'}): "
+            f"{match['available_quantity']} available, {price_text}. {match['reason']}"
+        )
+    lines.append("These are similar suggestions; the organiser can confirm the final selection with you.")
+    return "\n".join(lines)
