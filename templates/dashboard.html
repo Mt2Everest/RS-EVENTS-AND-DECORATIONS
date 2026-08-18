@@ -40,6 +40,7 @@ Active Enquiries
             <th>Quote Estimate</th>
             <th>Message</th>
             <th>Status</th>
+            <th>Inspiration</th>
 
             {% if role == "admin" %}
                 <th>Actions</th>
@@ -117,6 +118,15 @@ Active Enquiries
 
             <td>
                 {{ enquiry["Status"] }}
+            </td>
+
+            <td>
+                <a href="{{ url_for(
+                    'enquiry_inspiration',
+                    enquiry_id=enquiry['EnquiryID']
+                ) }}">
+                    View Images
+                </a>
             </td>
 
 

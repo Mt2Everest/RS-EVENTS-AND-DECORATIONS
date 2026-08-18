@@ -1,54 +1,98 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 
 <head>
 
+
     <meta charset="UTF-8">
+
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
+
     <!-- Display the current page title -->
     <title>
+
         {% block title %}
+
         RS Events & Decorations
+
         {% endblock %}
+
     </title>
+
 
     <!-- Connect the website stylesheet -->
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
+        href="{{ url_for(
+            'static',
+            filename='css/style.css'
+        ) }}"
     >
+
 
 </head>
 
+
 <body>
+
 
     <!-- ==========================
          WEBSITE NAVIGATION
     ========================== -->
 
+
     <nav>
 
-        <a href="{{ url_for('home') }}">Home</a>
 
-        <a href="{{ url_for('services') }}">Services</a>
+        <!-- Public website pages -->
 
-        <a href="{{ url_for('gallery') }}">Gallery</a>
-
-        <a href="{{ url_for('about') }}">About Us</a>
-
-        <a href="{{ url_for('contact') }}">Contact</a>
-
-        <a href="{{ url_for('assistant') }}">AI Assistant</a>
+        <a href="{{ url_for('home') }}">
+            Home
+        </a>
 
 
-        <!-- Display account pages after login -->
+        <a href="{{ url_for('services') }}">
+            Services
+        </a>
+
+
+        <a href="{{ url_for('gallery') }}">
+            Gallery
+        </a>
+
+
+        <a href="{{ url_for('about') }}">
+            About Us
+        </a>
+
+
+        <a href="{{ url_for('contact') }}">
+            Contact
+        </a>
+
+
+        <a href="{{ url_for('assistant') }}">
+            AI Assistant
+        </a>
+
+
+
+        <!-- ==========================
+             STAFF NAVIGATION
+        ========================== -->
+
+
         {% if session.get("logged_in") %}
 
+
+            <!-- Dashboard -->
             <a href="{{ url_for('dashboard') }}">
                 Dashboard
             </a>
@@ -62,49 +106,94 @@
             </a>
 
 
-            <!-- Only Rani can access management pages -->
+            <!-- Services and pricing -->
+            <a href="{{ url_for('manage_services') }}">
+                Services Management
+            </a>
+
+
+            <!-- Accepted bookings -->
+            <a href="{{ url_for('in_progress') }}">
+                In Progress
+            </a>
+
+
+            <!-- Business inventory -->
+            <a href="{{ url_for('inventory') }}">
+                Inventory
+            </a>
+
+
+
+            <!-- ==========================
+                 RANI ADMINISTRATION
+            ========================== -->
+
+
             {% if session.get("role") == "admin" %}
 
+
+                <!-- Completed bookings -->
                 <a href="{{ url_for('archive') }}">
                     Archive
                 </a>
 
+
+                <!-- Soft deleted enquiries -->
                 <a href="{{ url_for('recently_deleted') }}">
                     Recently Deleted
                 </a>
 
+
+                <!-- Employee management -->
                 <a href="{{ url_for('manage_employees') }}">
                     Employees
                 </a>
 
+
             {% endif %}
 
+
+
+            <!-- End the current login session -->
             <a href="{{ url_for('logout') }}">
                 Logout
             </a>
 
+
         {% else %}
 
+
+            <!-- Staff login page -->
             <a href="{{ url_for('login') }}">
                 Staff Login
             </a>
 
+
         {% endif %}
 
+
     </nav>
+
 
 
     <!-- ==========================
          PAGE CONTENT
     ========================== -->
 
+
     <main>
 
+
         {% block content %}
+
         {% endblock %}
+
 
     </main>
 
+
 </body>
+
 
 </html>

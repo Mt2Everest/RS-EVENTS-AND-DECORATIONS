@@ -10,7 +10,8 @@ from flask import (
     redirect,
     session,
     url_for,
-    jsonify
+    jsonify,
+    send_from_directory
 )
 
 # Import database functions
@@ -30,7 +31,10 @@ from database import (
     accept_enquiry_as_booking,
     get_booking_confirmation,
     get_in_progress_bookings,
-    complete_in_progress_booking
+    complete_in_progress_booking,
+    get_enquiry_inspiration_images,
+    add_enquiry_inspiration_image,
+    find_enquiry_for_image_upload
 )
 
 # Import AI Booking Assistant functions
@@ -44,6 +48,15 @@ from ai_assistant import (
     format_inventory_suggestions,
     FIELD_QUESTIONS
 )
+
+# Import secure filename handling for customer image uploads
+from werkzeug.utils import secure_filename
+
+# Import UUIDs so uploaded image filenames cannot clash
+from uuid import uuid4
+
+# Import OS for upload folders and file paths
+import os
 
 # Import regular expressions for quote-reference detection
 import re
@@ -71,6 +84,39 @@ app.permanent_session_lifetime = timedelta(days=30)
 # Protect login cookies
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+
+# Store customer inspiration images outside the public static folder
+INSPIRATION_UPLOAD_FOLDER = os.path.join(
+    "uploads",
+    "inspiration"
+)
+
+# Allow common image formats only
+ALLOWED_INSPIRATION_EXTENSIONS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "webp"
+}
+
+# Limit each upload request to 15 MB
+app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
+
+os.makedirs(
+    INSPIRATION_UPLOAD_FOLDER,
+    exist_ok=True
+)
+
+
+# Check whether an uploaded file has an allowed image extension
+def allowed_inspiration_file(filename):
+
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_INSPIRATION_EXTENSIONS
+    )
 
 
 # ===========================
@@ -479,7 +525,10 @@ def assistant_message():
                         "Your enquiry has been submitted successfully! "
                         f"Your enquiry reference is {reference_code}. "
                         "Please keep this reference in case you need "
-                        "to discuss or edit your enquiry later.",
+                        "to discuss or edit your enquiry later. "
+                        "If you have inspiration photos, you can now use "
+                        "the Inspiration Image Upload section below and "
+                        "enter this reference plus the same email address.",
                     "submitted": True,
                     "reference": reference_code
                 })
@@ -664,6 +713,225 @@ def reset_assistant():
             "Your previous conversation has been cleared. "
             "What type of event are you planning?"
     })
+
+
+# ===========================
+# CUSTOMER INSPIRATION IMAGE UPLOAD
+# ===========================
+
+@app.route(
+    "/assistant/inspiration-upload",
+    methods=["POST"]
+)
+def upload_inspiration_images():
+
+    reference_code = request.form.get(
+        "reference_code",
+        ""
+    ).strip()
+
+    email = request.form.get(
+        "email",
+        ""
+    ).strip()
+
+    uploaded_files = request.files.getlist(
+        "inspiration_images"
+    )
+
+    # Require customer verification details
+    if reference_code == "" or email == "":
+
+        return redirect(
+            url_for(
+                "assistant",
+                upload_error=(
+                    "Enter your enquiry reference and the same "
+                    "email address used for the enquiry."
+                )
+            )
+        )
+
+
+    enquiry = find_enquiry_for_image_upload(
+        reference_code,
+        email
+    )
+
+    if enquiry is None:
+
+        return redirect(
+            url_for(
+                "assistant",
+                upload_error=(
+                    "The enquiry reference and email address "
+                    "could not be verified."
+                )
+            )
+        )
+
+
+    # Remove blank file inputs
+    uploaded_files = [
+        file
+        for file in uploaded_files
+        if file is not None
+        and file.filename
+    ]
+
+    if len(uploaded_files) == 0:
+
+        return redirect(
+            url_for(
+                "assistant",
+                upload_error=(
+                    "Choose at least one inspiration image."
+                )
+            )
+        )
+
+
+    # Keep the feature manageable for the business owner
+    if len(uploaded_files) > 5:
+
+        return redirect(
+            url_for(
+                "assistant",
+                upload_error=(
+                    "Please upload a maximum of 5 images at a time."
+                )
+            )
+        )
+
+
+    saved_count = 0
+
+    for uploaded_file in uploaded_files:
+
+        original_filename = secure_filename(
+            uploaded_file.filename
+        )
+
+        if (
+            original_filename == ""
+            or not allowed_inspiration_file(
+                original_filename
+            )
+        ):
+
+            return redirect(
+                url_for(
+                    "assistant",
+                    upload_error=(
+                        "Only PNG, JPG, JPEG and WEBP "
+                        "inspiration images are allowed."
+                    )
+                )
+            )
+
+
+        extension = original_filename.rsplit(
+            ".",
+            1
+        )[1].lower()
+
+        stored_filename = (
+            f"{enquiry['EnquiryID']}_"
+            f"{uuid4().hex}.{extension}"
+        )
+
+        upload_path = os.path.join(
+            INSPIRATION_UPLOAD_FOLDER,
+            stored_filename
+        )
+
+        uploaded_file.save(
+            upload_path
+        )
+
+        add_enquiry_inspiration_image(
+            enquiry["EnquiryID"],
+            stored_filename,
+            original_filename
+        )
+
+        saved_count += 1
+
+
+    return redirect(
+        url_for(
+            "assistant",
+            upload_success=(
+                f"{saved_count} inspiration image"
+                f"{'s' if saved_count != 1 else ''} "
+                "uploaded successfully."
+            )
+        )
+    )
+
+
+# ===========================
+# STAFF INSPIRATION IMAGE VIEW
+# ===========================
+
+@app.route(
+    "/inspiration-images/<path:filename>"
+)
+@login_required
+def inspiration_image(filename):
+
+    # Only logged-in Rani/employees can view customer uploads
+    return send_from_directory(
+        INSPIRATION_UPLOAD_FOLDER,
+        filename
+    )
+
+
+@app.route(
+    "/enquiries/<int:enquiry_id>/inspiration"
+)
+@login_required
+def enquiry_inspiration(enquiry_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.EnquiryID,
+            Enquiries.ReferenceCode,
+            Enquiries.EventType,
+            Enquiries.EventDate,
+            Customers.FirstName,
+            Customers.LastName
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.EnquiryID = ?
+          AND Enquiries.Status != 'Deleted'
+    """, (
+        enquiry_id,
+    ))
+
+    enquiry = cursor.fetchone()
+    connection.close()
+
+    if enquiry is None:
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+
+    images = get_enquiry_inspiration_images(
+        enquiry_id
+    )
+
+    return render_template(
+        "inspiration_images.html",
+        enquiry=enquiry,
+        images=images
+    )
 
 
 # ===========================

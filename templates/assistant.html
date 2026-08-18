@@ -103,6 +103,105 @@ AI Booking Assistant
 
 
     <!-- ==========================
+         INSPIRATION IMAGE UPLOAD
+    ========================== -->
+
+    <hr>
+
+    <h2>Upload Inspiration Images</h2>
+
+    <p>
+        Already submitted your enquiry? You can attach inspiration
+        photos for the organiser to view.
+    </p>
+
+    <p>
+        Use the enquiry reference given by the AI and the same email
+        address used in your enquiry.
+    </p>
+
+    {% if request.args.get("upload_error") %}
+
+    <p style="color: red;">
+        {{ request.args.get("upload_error") }}
+    </p>
+
+    {% endif %}
+
+    {% if request.args.get("upload_success") %}
+
+    <p style="color: green;">
+        {{ request.args.get("upload_success") }}
+    </p>
+
+    {% endif %}
+
+    <form
+        method="POST"
+        action="{{ url_for('upload_inspiration_images') }}"
+        enctype="multipart/form-data"
+    >
+
+        <label for="reference-code">
+            Enquiry Reference
+        </label>
+
+        <br>
+
+        <input
+            id="reference-code"
+            type="text"
+            name="reference_code"
+            placeholder="RS-00011"
+            required
+        >
+
+        <br><br>
+
+        <label for="inspiration-email">
+            Email Address
+        </label>
+
+        <br>
+
+        <input
+            id="inspiration-email"
+            type="email"
+            name="email"
+            required
+        >
+
+        <br><br>
+
+        <label for="inspiration-images">
+            Inspiration Images
+        </label>
+
+        <br>
+
+        <input
+            id="inspiration-images"
+            type="file"
+            name="inspiration_images"
+            accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+            multiple
+            required
+        >
+
+        <p>
+            Maximum 5 images at a time. PNG, JPG, JPEG or WEBP.
+        </p>
+
+        <button type="submit">
+            Upload Inspiration Images
+        </button>
+
+    </form>
+
+    <br>
+
+
+    <!-- ==========================
          ASSISTANT STATUS
     ========================== -->
 

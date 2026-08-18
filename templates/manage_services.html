@@ -1,0 +1,155 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+{% block title %}
+Services Management
+{% endblock %}
+
+{% block content %}
+
+
+<!-- ==========================
+     PAGE HEADING
+========================== -->
+
+<h1>Services Management</h1>
+
+<p>
+    Manage the services and starting prices shown on the public website.
+</p>
+
+
+<!-- ==========================
+     ADMIN CONTROLS
+========================== -->
+
+{% if role == "admin" %}
+
+<p>
+    <a href="{{ url_for('add_service_page') }}">
+        Add New Service
+    </a>
+</p>
+
+{% else %}
+
+<p>
+    Employees have view-only access.
+</p>
+
+{% endif %}
+
+
+<!-- ==========================
+     SERVICES TABLE
+========================== -->
+
+{% if services %}
+
+<table border="1" cellpadding="10">
+
+    <thead>
+
+        <tr>
+
+            <th>Service</th>
+
+            <th>Category</th>
+
+            <th>Description</th>
+
+            <th>Starting Price</th>
+
+            {% if role == "admin" %}
+
+                <th>Actions</th>
+
+            {% endif %}
+
+        </tr>
+
+    </thead>
+
+
+    <tbody>
+
+        {% for service in services %}
+
+        <tr>
+
+            <td>
+                {{ service.ServiceName }}
+            </td>
+
+            <td>
+                {{ service.Category }}
+            </td>
+
+            <td>
+                {{ service.Description }}
+            </td>
+
+            <td>
+                ${{ "%.2f"|format(service.StartingPrice) }}
+            </td>
+
+
+            <!-- Only Rani can modify services -->
+            {% if role == "admin" %}
+
+            <td>
+
+                <a href="{{ url_for(
+                    'edit_service_page',
+                    service_id=service.ServiceID
+                ) }}">
+                    Edit
+                </a>
+
+                <br><br>
+
+
+                <!-- Permanently delete this service -->
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'delete_service_page',
+                        service_id=service.ServiceID
+                    ) }}"
+                    onsubmit="return confirm(
+                        'Permanently delete this service?'
+                    );"
+                >
+
+                    <button type="submit">
+                        Delete
+                    </button>
+
+                </form>
+
+            </td>
+
+            {% endif %}
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+
+{% else %}
+
+<p>
+    No services have been added yet.
+</p>
+
+{% endif %}
+
+
+{% endblock %}

@@ -1,11 +1,98 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
 {% extends "base.html" %}
+
 
 {% block title %}
 Services
 {% endblock %}
 
+
 {% block content %}
 
-<h1>Services Page</h1>
+
+<!-- ==========================
+     SERVICES HEADING
+========================== -->
+
+<h1>Our Services</h1>
+
+<p>
+    Explore the services currently offered by
+    RS Events & Decorations.
+    Prices shown are starting estimates only.
+</p>
+
+
+<!-- ==========================
+     AVAILABLE SERVICES
+========================== -->
+
+{% if services %}
+
+
+    {% for service in services %}
+
+
+    <!-- Individual service -->
+    <div class="service-card">
+
+
+        <h2>
+            {{ service.ServiceName }}
+        </h2>
+
+
+        <p>
+            <strong>Category:</strong>
+            {{ service.Category }}
+        </p>
+
+
+        <p>
+            {{ service.Description }}
+        </p>
+
+
+        <p>
+
+            <strong>
+                Starting from:
+            </strong>
+
+            ${{ "%.2f"|format(service.StartingPrice) }}
+
+        </p>
+
+
+        <p>
+
+            <small>
+                Final pricing may change depending on
+                event requirements, inventory,
+                delivery and setup requirements.
+            </small>
+
+        </p>
+
+
+    </div>
+
+
+    {% endfor %}
+
+
+{% else %}
+
+
+<p>
+    No services have been added yet.
+</p>
+
+
+{% endif %}
+
 
 {% endblock %}

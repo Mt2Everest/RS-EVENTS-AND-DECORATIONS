@@ -1,0 +1,138 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+{% block title %}
+{{ page_title }}
+{% endblock %}
+
+{% block content %}
+
+
+<!-- ==========================
+     PAGE HEADING
+========================== -->
+
+<h1>
+    {{ page_title }}
+</h1>
+
+
+<!-- ==========================
+     ERROR MESSAGE
+========================== -->
+
+{% if error %}
+
+<p style="color: red;">
+    {{ error }}
+</p>
+
+{% endif %}
+
+
+<!-- ==========================
+     SERVICE FORM
+========================== -->
+
+<form method="POST">
+
+
+    <!-- Service name -->
+    <label for="service-name">
+        Service Name
+    </label>
+
+    <br>
+
+    <input
+        id="service-name"
+        type="text"
+        name="service_name"
+        value="{{ service.ServiceName if service else '' }}"
+        required
+    >
+
+
+    <br><br>
+
+
+    <!-- Service category -->
+    <label for="service-category">
+        Category
+    </label>
+
+    <br>
+
+    <input
+        id="service-category"
+        type="text"
+        name="category"
+        value="{{ service.Category if service else '' }}"
+        placeholder="Example: Weddings"
+        required
+    >
+
+
+    <br><br>
+
+
+    <!-- Service description -->
+    <label for="service-description">
+        Description
+    </label>
+
+    <br>
+
+    <textarea
+        id="service-description"
+        name="description"
+        rows="5"
+        required
+    >{{ service.Description if service else '' }}</textarea>
+
+
+    <br><br>
+
+
+    <!-- Starting price -->
+    <label for="starting-price">
+        Starting Price ($)
+    </label>
+
+    <br>
+
+    <input
+        id="starting-price"
+        type="number"
+        name="starting_price"
+        min="0"
+        step="0.01"
+        value="{{ service.StartingPrice if service else '' }}"
+        required
+    >
+
+
+    <br><br>
+
+
+    <!-- Save the service -->
+    <button type="submit">
+        Save Service
+    </button>
+
+</form>
+
+
+<br>
+
+
+<!-- Return to management page -->
+<a href="{{ url_for('manage_services') }}">
+    Return to Services Management
+</a>
+
+
+{% endblock %}

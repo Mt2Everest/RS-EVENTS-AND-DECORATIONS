@@ -1300,3 +1300,103 @@ def complete_in_progress_booking(enquiry_id):
     connection.close()
 
     return True
+
+# ===========================
+# INSPIRATION IMAGES
+# ===========================
+
+def get_enquiry_inspiration_images(enquiry_id):
+
+    # Retrieve every inspiration image attached to an enquiry
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            ImageID,
+            EnquiryID,
+            StoredFilename,
+            OriginalFilename,
+            UploadedAt
+        FROM InspirationImages
+        WHERE EnquiryID = ?
+        ORDER BY ImageID ASC
+    """, (
+        enquiry_id,
+    ))
+
+    images = cursor.fetchall()
+
+    connection.close()
+
+    return [
+        dict(image)
+        for image in images
+    ]
+
+
+def add_enquiry_inspiration_image(
+    enquiry_id,
+    stored_filename,
+    original_filename
+):
+
+    # Link an uploaded image file to its enquiry
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO InspirationImages
+        (
+            EnquiryID,
+            StoredFilename,
+            OriginalFilename,
+            UploadedAt
+        )
+        VALUES (
+            ?, ?, ?, CURRENT_TIMESTAMP
+        )
+    """, (
+        enquiry_id,
+        stored_filename,
+        original_filename
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+def find_enquiry_for_image_upload(
+    reference_code,
+    email
+):
+
+    # Verify a customer before allowing an image to be attached
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.EnquiryID,
+            Enquiries.ReferenceCode,
+            Enquiries.Status,
+            Customers.Email
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE UPPER(Enquiries.ReferenceCode) = UPPER(?)
+          AND LOWER(Customers.Email) = LOWER(?)
+          AND Enquiries.Status != 'Deleted'
+    """, (
+        reference_code.strip(),
+        email.strip()
+    ))
+
+    enquiry = cursor.fetchone()
+
+    connection.close()
+
+    if enquiry is None:
+        return None
+
+    return dict(enquiry)

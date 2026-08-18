@@ -82,6 +82,15 @@ Enquiry Archive
 
             <td>
 
+                <a href="{{ url_for(
+                    'enquiry_inspiration',
+                    enquiry_id=enquiry['EnquiryID']
+                ) }}">
+                    View Inspiration Images
+                </a>
+
+                <br><br>
+
                 <!-- Return the enquiry to the active dashboard -->
                 <form
                     method="POST"

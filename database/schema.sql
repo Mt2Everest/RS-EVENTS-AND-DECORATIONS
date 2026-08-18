@@ -161,3 +161,25 @@ CREATE TABLE IF NOT EXISTS Quotes (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_enquiry ON Quotes(EnquiryID);
+
+-- Store customer inspiration images linked to an enquiry
+CREATE TABLE IF NOT EXISTS InspirationImages (
+
+    ImageID INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    EnquiryID INTEGER NOT NULL,
+
+    StoredFilename TEXT NOT NULL,
+
+    OriginalFilename TEXT NOT NULL,
+
+    UploadedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (EnquiryID)
+        REFERENCES Enquiries(EnquiryID)
+        ON DELETE CASCADE
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_inspiration_images_enquiry
+ON InspirationImages(EnquiryID);

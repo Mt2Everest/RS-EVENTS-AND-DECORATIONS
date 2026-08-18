@@ -1,0 +1,96 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+{% block title %}
+Inspiration Images
+{% endblock %}
+
+{% block content %}
+
+<h1>Inspiration Images</h1>
+
+<p>
+    <strong>Enquiry:</strong>
+    {{ enquiry["ReferenceCode"] or ("#" ~ enquiry["EnquiryID"]) }}
+</p>
+
+<p>
+    <strong>Customer:</strong>
+    {{ enquiry["FirstName"] }}
+    {{ enquiry["LastName"] }}
+</p>
+
+<p>
+    <strong>Event:</strong>
+    {{ enquiry["EventType"] }}
+</p>
+
+<p>
+    <strong>Event Date:</strong>
+    {{ enquiry["EventDate"] }}
+</p>
+
+
+{% if images %}
+
+<h2>Customer Uploads</h2>
+
+<div class="inspiration-gallery">
+
+    {% for image in images %}
+
+    <div class="inspiration-image-card">
+
+        <a
+            href="{{ url_for(
+                'inspiration_image',
+                filename=image.StoredFilename
+            ) }}"
+            target="_blank"
+        >
+
+            <img
+                src="{{ url_for(
+                    'inspiration_image',
+                    filename=image.StoredFilename
+                ) }}"
+                alt="Customer inspiration image"
+                style="
+                    max-width: 300px;
+                    max-height: 300px;
+                    object-fit: contain;
+                "
+            >
+
+        </a>
+
+        <p>
+            {{ image.OriginalFilename }}
+        </p>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% else %}
+
+<p>
+    The customer has not uploaded any inspiration images
+    for this enquiry.
+</p>
+
+{% endif %}
+
+
+<br>
+
+<a href="{{ url_for('dashboard') }}">
+    Return to Dashboard
+</a>
+
+{% endblock %}
