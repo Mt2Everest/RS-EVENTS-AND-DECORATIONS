@@ -31,8 +31,8 @@ client = OpenAI(
 # Send a test message
 response = client.chat.completions.create(
 
-    # Use a Groq-supported model
-    model="llama-3.3-70b-versatile",
+    # Use a current Groq-supported model
+    model="openai/gpt-oss-20b",
 
     messages=[
 

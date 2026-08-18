@@ -18,7 +18,10 @@ import json
 import re
 
 # Import date so the current date can be given to the AI
-from datetime import date
+from datetime import date, datetime
+
+# Import ContextVar so validation feedback stays safe between user requests
+from contextvars import ContextVar
 
 
 # ===========================
@@ -50,7 +53,7 @@ client = OpenAI(
 )
 
 # AI model used by the booking assistant
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-20b"
 
 
 # ===========================
@@ -88,7 +91,32 @@ REQUIRED_FIELDS = [
 # ===========================
 
 # Questions used when booking information is missing
-FIELD_QUESTIONS = {
+# Validation messages can temporarily override these questions for one request.
+VALIDATION_FEEDBACK = ContextVar(
+    "validation_feedback",
+    default=None
+)
+
+
+class ValidationQuestionDictionary(dict):
+
+    # Return specific validation feedback when the latest answer was invalid
+    def __getitem__(self, key):
+
+        feedback = VALIDATION_FEEDBACK.get()
+
+        if (
+            feedback is not None
+            and feedback.get("field") == key
+        ):
+
+            VALIDATION_FEEDBACK.set(None)
+            return feedback.get("message")
+
+        return super().__getitem__(key)
+
+
+FIELD_QUESTIONS = ValidationQuestionDictionary({
 
     "event_type":
         "What type of event are you planning?",
@@ -106,7 +134,10 @@ FIELD_QUESTIONS = {
         "What is the best phone number for the organiser to contact you on?",
 
     "event_date":
-        "What date will your event take place?",
+        (
+            "What date will your event take place? "
+            "Please include the day, month and year."
+        ),
 
     "event_location":
         "Where will the event be held?",
@@ -123,7 +154,7 @@ FIELD_QUESTIONS = {
             "You can include colours, themes, props, balloons, "
             "flowers or anything else you would like."
         )
-}
+})
 
 
 # ===========================
@@ -177,6 +208,442 @@ def find_missing_field(draft):
 
     # All required information has been collected
     return None
+
+
+# ===========================
+# VALIDATION HELPERS
+# ===========================
+
+
+def set_validation_feedback(field, message):
+
+    # Store a helpful explanation for the next question shown to the customer
+    VALIDATION_FEEDBACK.set({
+        "field": field,
+        "message": message
+    })
+
+
+def clear_validation_feedback():
+
+    # Remove any validation message left from an earlier request
+    VALIDATION_FEEDBACK.set(None)
+
+
+def validate_name(value, field_name):
+
+    # Names must contain letters and may include spaces, apostrophes or hyphens
+    if value is None:
+        return False, None, (
+            f"I still need your {field_name.replace('_', ' ')}. "
+            "Please enter it using letters only."
+        )
+
+    cleaned = str(value).strip()
+
+    if cleaned == "":
+        return False, None, (
+            f"Your {field_name.replace('_', ' ')} cannot be blank. "
+            "Please enter it using letters only."
+        )
+
+    if any(character.isdigit() for character in cleaned):
+        return False, None, (
+            f"That does not look like a valid {field_name.replace('_', ' ')} "
+            "because it contains numbers. Please use letters only, "
+            "for example 'Rani'."
+        )
+
+    if not re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ' -]+", cleaned):
+        return False, None, (
+            f"That does not look like a valid {field_name.replace('_', ' ')}. "
+            "Please use letters, spaces, apostrophes or hyphens only."
+        )
+
+    return True, cleaned, None
+
+
+def validate_email(value):
+
+    # Email must use a normal name@example.com structure
+    if value is None:
+        return False, None, (
+            "I still need a valid email address. Please enter an email "
+            "such as name@example.com."
+        )
+
+    cleaned = str(value).strip()
+
+    # If the customer wrote a sentence containing an email, extract the email itself
+    email_match = re.search(
+        r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+        cleaned
+    )
+
+    if email_match:
+        return True, email_match.group(0), None
+
+    if "@" not in cleaned:
+        return False, None, (
+            "That does not look like a valid email address because it is "
+            "missing an @ symbol. Please enter an email such as "
+            "name@example.com."
+        )
+
+    local_part, _, domain = cleaned.partition("@")
+
+    if local_part.strip() == "":
+        return False, None, (
+            "That email address is missing the part before the @ symbol. "
+            "Please enter an email such as name@example.com."
+        )
+
+    if "." not in domain:
+        return False, None, (
+            "That email address is missing a complete domain, such as "
+            "gmail.com. Please enter an email such as name@example.com."
+        )
+
+    return False, None, (
+        "That does not appear to be a valid email address. Please use a "
+        "format such as name@example.com."
+    )
+
+
+def validate_phone(value):
+
+    # Phone numbers may contain normal formatting but must contain 10 to 15 digits
+    if value is None:
+        return False, None, (
+            "I still need a valid phone number. Please enter a number "
+            "containing 10 to 15 digits, for example 0412 345 678."
+        )
+
+    cleaned = str(value).strip()
+
+    if re.search(r"[A-Za-z]", cleaned):
+        return False, None, (
+            "That does not look like a valid phone number because it contains "
+            "letters. Please enter 10 to 15 digits, for example 0412 345 678."
+        )
+
+    digits = re.sub(r"\D", "", cleaned)
+
+    if len(digits) < 10:
+        return False, None, (
+            f"That phone number only contains {len(digits)} digits. "
+            "Please enter a phone number containing at least 10 digits, "
+            "for example 0412 345 678."
+        )
+
+    if len(digits) > 15:
+        return False, None, (
+            f"That phone number contains {len(digits)} digits, which is too many. "
+            "Please enter a phone number containing between 10 and 15 digits."
+        )
+
+    return True, digits, None
+
+
+def parse_event_date(value):
+
+    # Convert common date formats into YYYY-MM-DD and reject incomplete/past dates
+    if value is None:
+        return False, None, (
+            "I still need the full event date. Please include the day, month "
+            "and year, for example 18 December 2026 or 18/12/2026."
+        )
+
+    original = str(value).strip()
+
+    if original == "":
+        return False, None, (
+            "The event date cannot be blank. Please include the day, month "
+            "and year, for example 18 December 2026."
+        )
+
+    cleaned = original
+
+    # Remove a weekday at the beginning, such as 'Tuesday'.
+    cleaned = re.sub(
+        r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,?\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    # Convert ordinal endings: 18th -> 18, 21st -> 21.
+    cleaned = re.sub(
+        r"(\d+)(st|nd|rd|th)",
+        r"\1",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    month_words = (
+        "january|february|march|april|may|june|july|august|"
+        "september|october|november|december|jan|feb|mar|apr|"
+        "jun|jul|aug|sep|sept|oct|nov|dec"
+    )
+
+    contains_month_word = re.search(
+        rf"\b({month_words})\b",
+        cleaned,
+        re.IGNORECASE
+    )
+
+    contains_four_digit_year = re.search(r"\b(?:19|20)\d{2}\b", cleaned)
+    contains_numeric_year = re.search(r"[/-]\d{2,4}\s*$", cleaned)
+
+    if (
+        contains_month_word
+        and not contains_four_digit_year
+        and not contains_numeric_year
+    ):
+        return False, None, (
+            "I can understand the day and month, but the year is missing. "
+            "Please include the year too, for example 18 December 2026."
+        )
+
+    formats = [
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%d/%m/%y",
+        "%d-%m-%Y",
+        "%d-%m-%y",
+        "%d.%m.%Y",
+        "%d.%m.%y",
+        "%d %B %Y",
+        "%d %b %Y",
+        "%B %d %Y",
+        "%b %d %Y"
+    ]
+
+    parsed_date = None
+
+    for date_format in formats:
+        try:
+            parsed_date = datetime.strptime(
+                cleaned,
+                date_format
+            ).date()
+            break
+        except ValueError:
+            continue
+
+    # Accept an unambiguous US-style entry such as 10/21/26.
+    if parsed_date is None:
+        numeric_match = re.fullmatch(
+            r"(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})",
+            cleaned
+        )
+
+        if numeric_match:
+            first_number = int(numeric_match.group(1))
+            second_number = int(numeric_match.group(2))
+
+            if second_number > 12 and first_number <= 12:
+                for date_format in ("%m/%d/%Y", "%m/%d/%y"):
+                    try:
+                        parsed_date = datetime.strptime(
+                            cleaned,
+                            date_format
+                        ).date()
+                        break
+                    except ValueError:
+                        continue
+
+    if parsed_date is None:
+        return False, None, (
+            "I could not recognise that as a complete valid date. Please include "
+            "the day, month and year, for example 18 December 2026 or "
+            "18/12/2026."
+        )
+
+    if parsed_date < date.today():
+        return False, None, (
+            f"That event date ({parsed_date.strftime('%d %B %Y')}) is in the past. "
+            "Please enter a future event date."
+        )
+
+    return True, parsed_date.isoformat(), None
+
+
+def validate_guest_count(value):
+
+    # Guest count must be a positive whole number. Values such as 1000 are valid.
+    if value is None:
+        return False, None, (
+            "I need the number of guests as a whole number, for example 80 or 1000."
+        )
+
+    if isinstance(value, int):
+        guest_count = value
+    else:
+        text = str(value).replace(",", "").strip()
+        match = re.search(r"-?\d+", text)
+
+        if not match:
+            return False, None, (
+                "I could not find a guest number in that answer. Please enter "
+                "a whole number, for example 80 or 1000."
+            )
+
+        guest_count = int(match.group(0))
+
+    if guest_count <= 0:
+        return False, None, (
+            "The guest count must be greater than 0. Please enter a positive "
+            "whole number, for example 80."
+        )
+
+    return True, guest_count, None
+
+
+def validate_budget(value):
+
+    # Budget must be a positive number.
+    if value is None:
+        return False, None, (
+            "I need a numerical decoration budget, for example 1500 or $1,500."
+        )
+
+    if isinstance(value, (int, float)):
+        budget = float(value)
+    else:
+        cleaned = (
+            str(value)
+            .replace("$", "")
+            .replace(",", "")
+            .strip()
+        )
+
+        try:
+            budget = float(cleaned)
+        except ValueError:
+            return False, None, (
+                "I could not recognise that as a budget. Please enter a numerical "
+                "amount, for example 1500 or $1,500."
+            )
+
+    if budget <= 0:
+        return False, None, (
+            "The decoration budget must be greater than $0. Please enter a "
+            "positive amount, for example 1500."
+        )
+
+    return True, budget, None
+
+
+def validate_field_value(field, value):
+
+    # Run the correct validation rule for structured customer information.
+    if field == "first_name":
+        return validate_name(value, "first_name")
+
+    if field == "last_name":
+        return validate_name(value, "last_name")
+
+    if field == "email":
+        return validate_email(value)
+
+    if field == "phone":
+        return validate_phone(value)
+
+    if field == "event_date":
+        return parse_event_date(value)
+
+    if field == "guest_count":
+        return validate_guest_count(value)
+
+    if field == "budget":
+        return validate_budget(value)
+
+    if value is None:
+        return True, None, None
+
+    if isinstance(value, str):
+        return True, value.strip(), None
+
+    return True, value, None
+
+
+def validate_extracted_information(
+    extracted_information,
+    expected_field,
+    customer_message
+):
+
+    # Validate every structured value before anything is saved to the enquiry draft.
+    validated = dict(extracted_information)
+    first_invalid_field = None
+    first_error_message = None
+
+    fields_to_validate = [
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "event_date",
+        "guest_count",
+        "budget"
+    ]
+
+    for field in fields_to_validate:
+
+        if field not in validated:
+            continue
+
+        value = validated.get(field)
+
+        if value is None or value == "":
+            continue
+
+        valid, normalised_value, error_message = validate_field_value(
+            field,
+            value
+        )
+
+        if valid:
+            validated[field] = normalised_value
+        else:
+            validated[field] = None
+
+            if first_invalid_field is None:
+                first_invalid_field = field
+                first_error_message = error_message
+
+    # If the expected field is still missing, inspect the raw answer as well.
+    # This provides specific explanations such as 'the year is missing'.
+    if (
+        expected_field in fields_to_validate
+        and (
+            validated.get(expected_field) is None
+            or validated.get(expected_field) == ""
+        )
+    ):
+
+        valid, normalised_value, error_message = validate_field_value(
+            expected_field,
+            customer_message
+        )
+
+        if valid:
+            validated[expected_field] = normalised_value
+            first_invalid_field = None
+            first_error_message = None
+        else:
+            first_invalid_field = expected_field
+            first_error_message = error_message
+
+    if first_invalid_field is not None:
+        validated["__invalid_field"] = first_invalid_field
+        set_validation_feedback(
+            first_invalid_field,
+            first_error_message
+        )
+
+    return validated
 
 
 # ===========================
@@ -380,25 +847,31 @@ def analyse_customer_message(
     current_draft
 ):
 
+    # Clear any old validation feedback before processing a new message
+    clear_validation_feedback()
+
+    # Find which field is currently missing
+    expected_field = find_missing_field(
+        current_draft
+    )
+
     # First try to understand obvious short answers using Python
     simple_answer = detect_simple_answer(
         customer_message,
         current_draft
     )
 
-    # Return immediately if Python understood the answer
+    # Validate short answers before returning them
     if simple_answer is not None:
 
-        return simple_answer
-
+        return validate_extracted_information(
+            simple_answer,
+            expected_field,
+            customer_message
+        )
 
     # Give the AI today's date
     today = date.today().isoformat()
-
-    # Find which field is currently missing
-    expected_field = find_missing_field(
-        current_draft
-    )
 
 
     # ===========================
@@ -567,6 +1040,9 @@ Rules:
 13. If the customer says information is incorrect,
     set confirmation to "no".
 14. Otherwise set confirmation to "unclear".
+15. Never invent a missing year for an event date. If the customer does not provide a year, return event_date as null.
+16. Never invent missing digits in a phone number or missing parts of an email address.
+17. Python performs the final validation, so preserve the customer's explicitly provided information accurately.
 """
 
 
@@ -621,7 +1097,12 @@ Rules:
     )
 
 
-    return extracted_information
+    # Validate Groq's extracted values before they are saved
+    return validate_extracted_information(
+        extracted_information,
+        expected_field,
+        customer_message
+    )
 
 
 # ===========================
@@ -632,6 +1113,15 @@ def update_draft(
     current_draft,
     extracted_information
 ):
+
+    # If an answer failed validation, keep that field empty so the app asks
+    # for it again using the specific validation explanation.
+    invalid_field = extracted_information.get(
+        "__invalid_field"
+    )
+
+    if invalid_field in current_draft:
+        current_draft[invalid_field] = None
 
     # Check every recognised enquiry field
     for field in current_draft:

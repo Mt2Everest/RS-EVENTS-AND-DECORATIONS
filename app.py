@@ -114,6 +114,55 @@ os.makedirs(
 )
 
 
+# ===========================
+# INPUT VALIDATION
+# ===========================
+
+def valid_email(email):
+    # Require a normal email structure without accepting obvious malformed input
+    return re.fullmatch(
+        r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+",
+        email.strip()
+    ) is not None
+
+
+def valid_phone(phone):
+    # Accept common Australian/international formatting while requiring 8-15 digits
+    digits = re.sub(
+        r"\D",
+        "",
+        phone
+    )
+
+    return 8 <= len(digits) <= 15
+
+
+def valid_positive_integer(value, maximum=None):
+    # Validate quantities such as guest counts and inventory allocations
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return False
+
+    if number <= 0:
+        return False
+
+    if maximum is not None and number > maximum:
+        return False
+
+    return True
+
+
+def valid_non_negative_money(value):
+    # Validate budgets and prices without allowing negative values
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+
+    return number >= 0
+
+
 # Check whether an uploaded file has an allowed image extension
 def allowed_inspiration_file(filename):
 
@@ -219,6 +268,9 @@ def add_service_page():
             else:
                 if price < 0:
                     error = "Starting price cannot be negative."
+
+                elif price > 1000000:
+                    error = "Starting price is too large. Please check the value."
                 else:
                     add_service(name, category, description, price)
                     return redirect(url_for("manage_services"))
@@ -246,6 +298,9 @@ def edit_service_page(service_id):
             else:
                 if price < 0:
                     error = "Starting price cannot be negative."
+
+                elif price > 1000000:
+                    error = "Starting price is too large. Please check the value."
                 else:
                     update_service(service_id, name, category, description, price)
                     return redirect(url_for("manage_services"))
@@ -835,6 +890,18 @@ def upload_inspiration_images():
         )
 
 
+    if not valid_email(email):
+
+        return redirect(
+            url_for(
+                "assistant",
+                upload_error=(
+                    "Please enter a valid email address."
+                )
+            )
+        )
+
+
     enquiry = find_enquiry_for_image_upload(
         reference_code,
         email
@@ -899,6 +966,11 @@ def upload_inspiration_images():
             or not allowed_inspiration_file(
                 original_filename
             )
+            or uploaded_file.mimetype not in {
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+            }
         ):
 
             return redirect(
@@ -1017,16 +1089,101 @@ def enquiry_inspiration(enquiry_id):
 
 
 # ===========================
-# CONTACT PAGE
+# CONTACT AND ENQUIRY FORM
 # ===========================
 
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact():
 
-    # The contact page now provides owner/business contact information.
-    # Event enquiries are submitted through the AI Booking Assistant.
+    success = None
+    error = None
+
+    if request.method == "POST":
+
+        # Collect customer information
+        firstname = request.form["firstname"].strip()
+        lastname = request.form["lastname"].strip()
+        email = request.form["email"].strip()
+        phone = request.form["phone"].strip()
+
+        # Collect event information
+        eventtype = request.form["eventtype"].strip()
+        eventdate = request.form["eventdate"]
+        guests = request.form["guests"]
+        budget = request.form["budget"]
+        message = request.form["message"].strip()
+
+        # Validate required information
+        if (
+            firstname == ""
+            or lastname == ""
+            or email == ""
+            or phone == ""
+            or eventtype == ""
+            or eventdate == ""
+        ):
+
+            error = (
+                "Please complete all required fields."
+            )
+
+        else:
+
+            connection = get_connection()
+            cursor = connection.cursor()
+
+            # Add the customer
+            cursor.execute("""
+                INSERT INTO Customers
+                (
+                    FirstName,
+                    LastName,
+                    Email,
+                    Phone
+                )
+                VALUES (?, ?, ?, ?)
+            """, (
+                firstname,
+                lastname,
+                email,
+                phone
+            ))
+
+            customer_id = cursor.lastrowid
+
+            # Add the enquiry
+            cursor.execute("""
+                INSERT INTO Enquiries
+                (
+                    CustomerID,
+                    EventType,
+                    EventDate,
+                    GuestCount,
+                    Budget,
+                    Message,
+                    Status
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 'Pending')
+            """, (
+                customer_id,
+                eventtype,
+                eventdate,
+                guests,
+                budget,
+                message
+            ))
+
+            connection.commit()
+            connection.close()
+
+            success = (
+                "Your enquiry has been submitted successfully."
+            )
+
     return render_template(
-        "contact.html"
+        "contact.html",
+        success=success,
+        error=error
     )
 
 
@@ -2045,11 +2202,13 @@ def inventory():
             quantity = int(quantity_text)
             hire_price = float(hire_price_text)
 
-            if quantity < 0 or hire_price < 0:
-                raise ValueError
+            if quantity <= 0:
+                error = "Total quantity must be a whole number of at least 1."
+            elif hire_price < 0:
+                error = "Hire price cannot be negative."
 
         except ValueError:
-            error = "Quantity and hire price must be valid positive numbers."
+            error = "Quantity must be a whole number and hire price must be a valid number."
 
         if item_name == "" or category == "":
             error = "Item name and category are required."
@@ -2129,7 +2288,7 @@ def edit_inventory_item(item_id):
 
         # Prevent impossible inventory values
         if (
-            quantity < 0
+            quantity <= 0
             or available_quantity < 0
             or available_quantity > quantity
             or hire_price < 0
