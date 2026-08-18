@@ -133,3 +133,31 @@ CREATE TABLE IF NOT EXISTS InventoryReservations (
     FOREIGN KEY (EnquiryID) REFERENCES Enquiries(EnquiryID),
     FOREIGN KEY (ItemID) REFERENCES Inventory(ItemID)
 );
+
+-- Prevent duplicate allocation rows for the same enquiry and inventory item
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_reservation_enquiry_item
+ON InventoryReservations(EnquiryID, ItemID);
+
+-- Improve date-based inventory availability checks
+CREATE INDEX IF NOT EXISTS idx_inventory_reservation_date
+ON InventoryReservations(EventDate);
+
+
+-- Store one saved quote estimate for each enquiry
+CREATE TABLE IF NOT EXISTS Quotes (
+    QuoteID INTEGER PRIMARY KEY AUTOINCREMENT,
+    EnquiryID INTEGER NOT NULL UNIQUE,
+    InventorySubtotal REAL NOT NULL DEFAULT 0,
+    SetupCost REAL NOT NULL DEFAULT 0,
+    DeliveryCost REAL NOT NULL DEFAULT 0,
+    LabourCost REAL NOT NULL DEFAULT 0,
+    OtherCost REAL NOT NULL DEFAULT 0,
+    OtherDescription TEXT,
+    EstimatedTotal REAL NOT NULL DEFAULT 0,
+    QuoteStatus TEXT NOT NULL DEFAULT 'Estimate',
+    CreatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TEXT,
+    FOREIGN KEY (EnquiryID) REFERENCES Enquiries(EnquiryID) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_enquiry ON Quotes(EnquiryID);

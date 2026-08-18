@@ -1,0 +1,111 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+{% block title %}
+Quote Calculator
+{% endblock %}
+
+{% block content %}
+
+<h1>Quote Calculator</h1>
+
+<p><strong>Enquiry:</strong> {{ enquiry.ReferenceCode or ("#" ~ enquiry.EnquiryID) }}</p>
+<p><strong>Customer:</strong> {{ enquiry.FirstName }} {{ enquiry.LastName }}</p>
+<p><strong>Event:</strong> {{ enquiry.EventType }}</p>
+<p><strong>Date:</strong> {{ enquiry.EventDate }}</p>
+<p><strong>Location:</strong> {{ enquiry.EventLocation or "Not provided" }}</p>
+<p>
+    <strong>Customer Budget:</strong>
+    {% if enquiry.Budget is not none %}
+        ${{ "%.2f"|format(enquiry.Budget) }}
+    {% else %}
+        Not provided
+    {% endif %}
+</p>
+
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+{% if success %}<p style="color:green;">{{ success }}</p>{% endif %}
+
+<h2>Allocated Inventory</h2>
+
+{% if allocated_items %}
+<table border="1" cellpadding="10">
+    <thead>
+        <tr><th>Item</th><th>Quantity</th><th>Hire Price</th><th>Item Cost</th></tr>
+    </thead>
+    <tbody>
+        {% for item in allocated_items %}
+        <tr>
+            <td>{{ item.ItemName }}</td>
+            <td>{{ item.QuantityReserved }}</td>
+            <td>${{ "%.2f"|format(item.HirePrice or 0) }}</td>
+            <td>${{ "%.2f"|format(item.ItemCost or 0) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No inventory has been allocated to this enquiry yet.</p>
+{% endif %}
+
+<h2>Additional Costs</h2>
+
+<form method="POST">
+    <label>Setup Cost ($)</label><br>
+    <input type="number" name="setup_cost" min="0" step="0.01" value="{{ quote.SetupCost if quote else 0 }}" required>
+    <br><br>
+
+    <label>Delivery Cost ($)</label><br>
+    <input type="number" name="delivery_cost" min="0" step="0.01" value="{{ quote.DeliveryCost if quote else 0 }}" required>
+    <br><br>
+
+    <label>Labour Cost ($)</label><br>
+    <input type="number" name="labour_cost" min="0" step="0.01" value="{{ quote.LabourCost if quote else 0 }}" required>
+    <br><br>
+
+    <label>Other Cost Description</label><br>
+    <input type="text" name="other_description" value="{{ quote.OtherDescription if quote and quote.OtherDescription else '' }}" placeholder="Example: Custom floral arrangement">
+    <br><br>
+
+    <label>Other Cost ($)</label><br>
+    <input type="number" name="other_cost" min="0" step="0.01" value="{{ quote.OtherCost if quote else 0 }}" required>
+    <br><br>
+
+    <button type="submit">Calculate and Save Quote</button>
+</form>
+
+{% if quote %}
+<h2>Saved Quote Estimate</h2>
+
+<table border="1" cellpadding="10">
+    <tr><th>Inventory Hire</th><td>${{ "%.2f"|format(quote.InventorySubtotal) }}</td></tr>
+    <tr><th>Setup</th><td>${{ "%.2f"|format(quote.SetupCost) }}</td></tr>
+    <tr><th>Delivery</th><td>${{ "%.2f"|format(quote.DeliveryCost) }}</td></tr>
+    <tr><th>Labour</th><td>${{ "%.2f"|format(quote.LabourCost) }}</td></tr>
+    <tr>
+        <th>Other{% if quote.OtherDescription %} - {{ quote.OtherDescription }}{% endif %}</th>
+        <td>${{ "%.2f"|format(quote.OtherCost) }}</td>
+    </tr>
+    <tr><th>Estimated Total</th><td><strong>${{ "%.2f"|format(quote.EstimatedTotal) }}</strong></td></tr>
+</table>
+
+{% if enquiry.Budget is not none %}
+    {% set difference = enquiry.Budget - quote.EstimatedTotal %}
+    {% if difference >= 0 %}
+        <p>This estimate is <strong>${{ "%.2f"|format(difference) }} under</strong> the customer's stated budget.</p>
+    {% else %}
+        <p>This estimate is <strong>${{ "%.2f"|format(-difference) }} over</strong> the customer's stated budget.</p>
+    {% endif %}
+{% endif %}
+
+<p><strong>Important:</strong> This is an estimated quote only. It does not process any payment.</p>
+{% endif %}
+
+<br>
+<a href="{{ url_for('allocate_enquiry_inventory', enquiry_id=enquiry.EnquiryID) }}">Manage Inventory</a> |
+<a href="{{ url_for('dashboard') }}">Return to Dashboard</a>
+
+{% endblock %}

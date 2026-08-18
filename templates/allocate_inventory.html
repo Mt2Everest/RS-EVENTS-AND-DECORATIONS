@@ -1,0 +1,116 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+{% extends "base.html" %}
+
+{% block title %}
+Allocate Inventory
+{% endblock %}
+
+{% block content %}
+
+<!-- ==========================
+     ENQUIRY INFORMATION
+========================== -->
+<h1>Allocate Inventory</h1>
+
+<p>
+    <strong>Enquiry:</strong>
+    {{ enquiry.ReferenceCode or ("#" ~ enquiry.EnquiryID) }}
+</p>
+
+<p>
+    <strong>Customer:</strong>
+    {{ enquiry.FirstName }} {{ enquiry.LastName }}
+</p>
+
+<p>
+    <strong>Event:</strong>
+    {{ enquiry.EventType }}
+</p>
+
+<p>
+    <strong>Event Date:</strong>
+    {{ enquiry.EventDate }}
+</p>
+
+{% if enquiry.EventLocation %}
+<p>
+    <strong>Location:</strong>
+    {{ enquiry.EventLocation }}
+</p>
+{% endif %}
+
+<p>
+    Enter how many of each item should be reserved for this event.
+    The maximum shown already accounts for other events on the same date.
+</p>
+
+<!-- ==========================
+     VALIDATION MESSAGES
+========================== -->
+{% if error %}
+<p class="error-message">{{ error }}</p>
+{% endif %}
+
+{% if success %}
+<p class="success-message">{{ success }}</p>
+{% endif %}
+
+<!-- ==========================
+     INVENTORY ALLOCATION FORM
+========================== -->
+{% if inventory_items %}
+<form method="POST">
+    <table border="1" cellpadding="10">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Hire Price</th>
+                <th>Maximum Available for this Event</th>
+                <th>Quantity Reserved</th>
+                <th>Estimated Item Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventory_items %}
+            <tr>
+                <td>{{ item.ItemName }}</td>
+                <td>{{ item.Category }}</td>
+                <td>${{ "%.2f"|format(item.HirePrice or 0) }}</td>
+                <td>{{ item.MaximumForThisEnquiry }}</td>
+                <td>
+                    <input
+                        type="number"
+                        name="quantity_{{ item.ItemID }}"
+                        value="{{ item.QuantityReserved }}"
+                        min="0"
+                        max="{{ item.MaximumForThisEnquiry }}"
+                        required
+                    >
+                </td>
+                <td>
+                    ${{ "%.2f"|format((item.HirePrice or 0) * item.QuantityReserved) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+
+    <button type="submit">
+        Save Inventory Allocation
+    </button>
+</form>
+{% else %}
+<p>No inventory items have been added yet.</p>
+{% endif %}
+
+<br>
+<a href="{{ url_for('dashboard') }}">
+    Return to Dashboard
+</a>
+
+{% endblock %}

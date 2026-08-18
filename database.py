@@ -648,9 +648,229 @@ def get_inventory_availability(event_date):
         LEFT JOIN InventoryReservations
           ON Inventory.ItemID = InventoryReservations.ItemID
          AND InventoryReservations.EventDate = ?
+         AND InventoryReservations.EnquiryID IN (
+             SELECT EnquiryID FROM Enquiries WHERE Status != 'Deleted'
+         )
         GROUP BY Inventory.ItemID
         ORDER BY Inventory.Category, Inventory.ItemName
     """, (event_date,))
     rows = cursor.fetchall()
     connection.close()
     return [dict(row) for row in rows]
+
+# ===========================
+# ENQUIRY INVENTORY ALLOCATION
+# ===========================
+
+def get_enquiry_inventory_allocation(enquiry_id):
+    # Return the enquiry plus all inventory and quantities available for its date
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT Enquiries.EnquiryID, Enquiries.ReferenceCode, Enquiries.EventType,
+               Enquiries.EventDate, Enquiries.EventLocation, Enquiries.Status,
+               Customers.FirstName, Customers.LastName
+        FROM Enquiries
+        INNER JOIN Customers ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.EnquiryID = ?
+          AND Enquiries.Status != 'Deleted'
+    """, (enquiry_id,))
+    enquiry = cursor.fetchone()
+
+    if enquiry is None:
+        connection.close()
+        return None, []
+
+    cursor.execute("""
+        SELECT Inventory.ItemID, Inventory.ItemName, Inventory.Category,
+               Inventory.Quantity, Inventory.AvailableQuantity, Inventory.HirePrice,
+               COALESCE(CurrentReservation.QuantityReserved, 0) AS QuantityReserved,
+               MAX(0, Inventory.AvailableQuantity
+                   - COALESCE(OtherReservations.OtherReserved, 0)) AS MaximumForThisEnquiry
+        FROM Inventory
+        LEFT JOIN InventoryReservations AS CurrentReservation
+          ON CurrentReservation.ItemID = Inventory.ItemID
+         AND CurrentReservation.EnquiryID = ?
+        LEFT JOIN (
+            SELECT IR.ItemID, SUM(IR.QuantityReserved) AS OtherReserved
+            FROM InventoryReservations IR
+            INNER JOIN Enquiries E ON E.EnquiryID = IR.EnquiryID
+            WHERE IR.EventDate = ?
+              AND IR.EnquiryID != ?
+              AND E.Status != 'Deleted'
+            GROUP BY IR.ItemID
+        ) AS OtherReservations ON OtherReservations.ItemID = Inventory.ItemID
+        ORDER BY Inventory.Category, Inventory.ItemName
+    """, (enquiry_id, enquiry["EventDate"], enquiry_id))
+
+    items = cursor.fetchall()
+    connection.close()
+    return dict(enquiry), [dict(item) for item in items]
+
+
+def save_enquiry_inventory_allocation(enquiry_id, quantities):
+    # Validate and replace an enquiry's inventory allocation as one transaction
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT EventDate FROM Enquiries
+        WHERE EnquiryID = ? AND Status != 'Deleted'
+    """, (enquiry_id,))
+    enquiry = cursor.fetchone()
+    if enquiry is None:
+        connection.close()
+        return False, "Enquiry could not be found."
+
+    event_date = enquiry["EventDate"]
+
+    for item_id, quantity in quantities.items():
+        if quantity < 0:
+            connection.close()
+            return False, "Inventory quantities cannot be negative."
+
+        cursor.execute("""
+            SELECT Inventory.ItemName, Inventory.AvailableQuantity,
+                   COALESCE(SUM(InventoryReservations.QuantityReserved), 0) AS OtherReserved
+            FROM Inventory
+            LEFT JOIN InventoryReservations
+              ON Inventory.ItemID = InventoryReservations.ItemID
+             AND InventoryReservations.EventDate = ?
+             AND InventoryReservations.EnquiryID != ?
+             AND InventoryReservations.EnquiryID IN (
+                 SELECT EnquiryID FROM Enquiries WHERE Status != 'Deleted'
+             )
+            WHERE Inventory.ItemID = ?
+            GROUP BY Inventory.ItemID
+        """, (event_date, enquiry_id, item_id))
+        item = cursor.fetchone()
+        if item is None:
+            connection.close()
+            return False, "An inventory item could not be found."
+
+        maximum = max(0, item["AvailableQuantity"] - item["OtherReserved"])
+        if quantity > maximum:
+            connection.close()
+            return False, f"Only {maximum} of {item['ItemName']} are available on {event_date}."
+
+    try:
+        cursor.execute("DELETE FROM InventoryReservations WHERE EnquiryID = ?", (enquiry_id,))
+        for item_id, quantity in quantities.items():
+            if quantity > 0:
+                cursor.execute("""
+                    INSERT INTO InventoryReservations
+                    (EnquiryID, ItemID, EventDate, QuantityReserved)
+                    VALUES (?, ?, ?, ?)
+                """, (enquiry_id, item_id, event_date, quantity))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        return False, "The inventory allocation could not be saved."
+
+    connection.close()
+    return True, "Inventory allocation saved successfully."
+
+
+# ===========================
+# QUOTE CALCULATOR
+# ===========================
+
+def get_enquiry_quote(enquiry_id):
+    # Retrieve the enquiry, allocated inventory, and any saved quote
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT Enquiries.EnquiryID, Enquiries.ReferenceCode, Enquiries.EventType,
+               Enquiries.EventDate, Enquiries.EventLocation, Enquiries.GuestCount,
+               Enquiries.Budget, Enquiries.Status, Customers.FirstName,
+               Customers.LastName, Customers.Email, Customers.Phone
+        FROM Enquiries
+        INNER JOIN Customers ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Enquiries.EnquiryID = ? AND Enquiries.Status != 'Deleted'
+    """, (enquiry_id,))
+
+    enquiry = cursor.fetchone()
+
+    if enquiry is None:
+        connection.close()
+        return None, [], None
+
+    cursor.execute("""
+        SELECT Inventory.ItemID, Inventory.ItemName, Inventory.Category,
+               Inventory.HirePrice, InventoryReservations.QuantityReserved,
+               (COALESCE(Inventory.HirePrice, 0) * InventoryReservations.QuantityReserved) AS ItemCost
+        FROM InventoryReservations
+        INNER JOIN Inventory ON InventoryReservations.ItemID = Inventory.ItemID
+        WHERE InventoryReservations.EnquiryID = ?
+        ORDER BY Inventory.Category, Inventory.ItemName
+    """, (enquiry_id,))
+
+    items = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM Quotes WHERE EnquiryID = ?", (enquiry_id,))
+    quote = cursor.fetchone()
+
+    connection.close()
+
+    return dict(enquiry), [dict(item) for item in items], dict(quote) if quote else None
+
+
+def save_enquiry_quote(enquiry_id, setup_cost, delivery_cost, labour_cost, other_cost, other_description):
+    # Validate and save a quote estimate
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT EnquiryID FROM Enquiries WHERE EnquiryID = ? AND Status != 'Deleted'",
+        (enquiry_id,)
+    )
+
+    if cursor.fetchone() is None:
+        connection.close()
+        return False, "Enquiry could not be found."
+
+    if any(cost < 0 for cost in [setup_cost, delivery_cost, labour_cost, other_cost]):
+        connection.close()
+        return False, "Quote costs cannot be negative."
+
+    # Inventory cost is always recalculated from the saved allocation
+    cursor.execute("""
+        SELECT COALESCE(
+            SUM(InventoryReservations.QuantityReserved * COALESCE(Inventory.HirePrice, 0)),
+            0
+        ) AS InventorySubtotal
+        FROM InventoryReservations
+        INNER JOIN Inventory ON InventoryReservations.ItemID = Inventory.ItemID
+        WHERE InventoryReservations.EnquiryID = ?
+    """, (enquiry_id,))
+
+    inventory_subtotal = float(cursor.fetchone()["InventorySubtotal"] or 0)
+    total = inventory_subtotal + setup_cost + delivery_cost + labour_cost + other_cost
+
+    cursor.execute("""
+        INSERT INTO Quotes
+        (EnquiryID, InventorySubtotal, SetupCost, DeliveryCost, LabourCost,
+         OtherCost, OtherDescription, EstimatedTotal, QuoteStatus, CreatedAt, UpdatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Estimate', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT(EnquiryID) DO UPDATE SET
+            InventorySubtotal = excluded.InventorySubtotal,
+            SetupCost = excluded.SetupCost,
+            DeliveryCost = excluded.DeliveryCost,
+            LabourCost = excluded.LabourCost,
+            OtherCost = excluded.OtherCost,
+            OtherDescription = excluded.OtherDescription,
+            EstimatedTotal = excluded.EstimatedTotal,
+            QuoteStatus = 'Estimate',
+            UpdatedAt = CURRENT_TIMESTAMP
+    """, (
+        enquiry_id, inventory_subtotal, setup_cost, delivery_cost,
+        labour_cost, other_cost, other_description, total
+    ))
+
+    connection.commit()
+    connection.close()
+
+    return True, "Quote estimate saved successfully."

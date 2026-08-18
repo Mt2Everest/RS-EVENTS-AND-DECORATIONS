@@ -4,212 +4,91 @@
 
 {% extends "base.html" %}
 
-
-<!-- ==========================
-     BROWSER TITLE
-========================== -->
-
 {% block title %}
 Active Enquiries
 {% endblock %}
-
-
-<!-- ==========================
-     DASHBOARD CONTENT
-========================== -->
 
 {% block content %}
 
 <h1>Active Enquiries</h1>
 
-<p>
-    Logged in as
-    <strong>{{ session.get("full_name") }}</strong>
-</p>
+<p>Logged in as <strong>{{ session.get("full_name") }}</strong></p>
 
-
-<!-- Display Rani's management shortcuts -->
 {% if role == "admin" %}
-
 <p>
-
-    <a href="{{ url_for('archive') }}">
-        View Archive
-    </a>
-
-    |
-
-    <a href="{{ url_for('recently_deleted') }}">
-        Recently Deleted
-    </a>
-
-    |
-
-    <a href="{{ url_for('manage_employees') }}">
-        Manage Employees
-    </a>
-
+    <a href="{{ url_for('archive') }}">View Archive</a> |
+    <a href="{{ url_for('recently_deleted') }}">Recently Deleted</a> |
+    <a href="{{ url_for('manage_employees') }}">Manage Employees</a>
 </p>
-
 {% endif %}
 
-
-<!-- ==========================
-     ACTIVE ENQUIRY TABLE
-========================== -->
-
 {% if enquiries %}
-
 <table>
-
     <thead>
-
         <tr>
-
             <th>ID</th>
-
             <th>Customer</th>
-
             <th>Contact</th>
-
             <th>Event</th>
-
             <th>Date</th>
-
             <th>Guests</th>
-
-            <th>Budget</th>
-
+            <th>Customer Budget</th>
+            <th>Quote Estimate</th>
             <th>Message</th>
-
             <th>Status</th>
-
-            {% if role == "admin" %}
-
-                <th>Actions</th>
-
-            {% endif %}
-
+            {% if role == "admin" %}<th>Actions</th>{% endif %}
         </tr>
-
     </thead>
-
     <tbody>
-
-        <!-- Display one row for each active enquiry -->
         {% for enquiry in enquiries %}
-
         <tr>
-
+            <td>{{ enquiry["EnquiryID"] }}</td>
+            <td>{{ enquiry["FirstName"] }} {{ enquiry["LastName"] }}</td>
+            <td>{{ enquiry["Email"] }}<br>{{ enquiry["Phone"] }}</td>
+            <td>{{ enquiry["EventType"] }}</td>
+            <td>{{ enquiry["EventDate"] }}</td>
+            <td>{{ enquiry["GuestCount"] }}</td>
             <td>
-                {{ enquiry["EnquiryID"] }}
+                {% if enquiry["Budget"] is not none %}
+                    ${{ "%.2f"|format(enquiry["Budget"]) }}
+                {% else %}
+                    Not provided
+                {% endif %}
             </td>
-
             <td>
-                {{ enquiry["FirstName"] }}
-                {{ enquiry["LastName"] }}
+                {% if enquiry["EstimatedTotal"] is not none %}
+                    ${{ "%.2f"|format(enquiry["EstimatedTotal"]) }}<br>
+                    <small>Estimate</small>
+                {% else %}
+                    Not calculated
+                {% endif %}
             </td>
+            <td>{{ enquiry["Message"] }}</td>
+            <td>{{ enquiry["Status"] }}</td>
 
-            <td>
-
-                {{ enquiry["Email"] }}
-
-                <br>
-
-                {{ enquiry["Phone"] }}
-
-            </td>
-
-            <td>
-                {{ enquiry["EventType"] }}
-            </td>
-
-            <td>
-                {{ enquiry["EventDate"] }}
-            </td>
-
-            <td>
-                {{ enquiry["GuestCount"] }}
-            </td>
-
-            <td>
-                ${{ enquiry["Budget"] }}
-            </td>
-
-            <td>
-                {{ enquiry["Message"] }}
-            </td>
-
-            <td>
-                {{ enquiry["Status"] }}
-            </td>
-
-
-            <!-- Employees cannot see editing controls -->
             {% if role == "admin" %}
-
             <td>
-
-                <a href="{{ url_for(
-                    'edit_enquiry',
-                    enquiry_id=enquiry['EnquiryID']
-                ) }}">
-                    Edit
-                </a>
-
+                <a href="{{ url_for('edit_enquiry', enquiry_id=enquiry['EnquiryID']) }}">Edit</a>
                 <br><br>
-
-                <form
-                    method="POST"
-                    action="{{ url_for(
-                        'complete_enquiry',
-                        enquiry_id=enquiry['EnquiryID']
-                    ) }}"
-                >
-
-                    <button type="submit">
-                        Mark Complete
-                    </button>
-
+                <a href="{{ url_for('allocate_enquiry_inventory', enquiry_id=enquiry['EnquiryID']) }}">Manage Inventory</a>
+                <br><br>
+                <a href="{{ url_for('enquiry_quote', enquiry_id=enquiry['EnquiryID']) }}">Quote Calculator</a>
+                <br><br>
+                <form method="POST" action="{{ url_for('complete_enquiry', enquiry_id=enquiry['EnquiryID']) }}">
+                    <button type="submit">Mark Complete</button>
                 </form>
-
                 <br>
-
-                <form
-                    method="POST"
-                    action="{{ url_for(
-                        'delete_enquiry',
-                        enquiry_id=enquiry['EnquiryID']
-                    ) }}"
-                    onsubmit="return confirm(
-                        'Move this enquiry to Recently Deleted?'
-                    );"
-                >
-
-                    <button type="submit">
-                        Delete
-                    </button>
-
+                <form method="POST" action="{{ url_for('delete_enquiry', enquiry_id=enquiry['EnquiryID']) }}" onsubmit="return confirm('Move this enquiry to Recently Deleted?');">
+                    <button type="submit">Delete</button>
                 </form>
-
             </td>
-
             {% endif %}
-
         </tr>
-
         {% endfor %}
-
     </tbody>
-
 </table>
-
 {% else %}
-
-<p>
-    There are currently no active enquiries.
-</p>
-
+<p>There are currently no active enquiries.</p>
 {% endif %}
 
 {% endblock %}

@@ -21,7 +21,11 @@ from database import (
     create_ai_enquiry,
     find_customer_enquiry,
     update_customer_enquiry,
-    get_inventory_availability
+    get_inventory_availability,
+    get_enquiry_inventory_allocation,
+    save_enquiry_inventory_allocation,
+    get_enquiry_quote,
+    save_enquiry_quote
 )
 
 # Import AI Booking Assistant functions
@@ -741,11 +745,15 @@ def dashboard():
             Customers.FirstName,
             Customers.LastName,
             Customers.Email,
-            Customers.Phone
+            Customers.Phone,
+            Quotes.EstimatedTotal,
+            Quotes.QuoteStatus
         FROM Enquiries
         INNER JOIN Customers
             ON Enquiries.CustomerID =
                Customers.CustomerID
+        LEFT JOIN Quotes
+            ON Enquiries.EnquiryID = Quotes.EnquiryID
         WHERE Enquiries.Status = 'Pending'
         ORDER BY Enquiries.EnquiryID DESC
     """)
@@ -874,6 +882,13 @@ def edit_enquiry(enquiry_id):
             message,
             enquiry_id
         ))
+
+        # Keep any existing inventory allocations linked to the updated event date
+        cursor.execute("""
+            UPDATE InventoryReservations
+            SET EventDate = ?
+            WHERE EnquiryID = ?
+        """, (eventdate, enquiry_id))
 
         connection.commit()
         connection.close()
@@ -1161,6 +1176,14 @@ def permanently_delete_enquiry(enquiry_id):
             "CustomerID"
         ]
 
+        # Remove related inventory reservation records
+        cursor.execute("""
+            DELETE FROM InventoryReservations
+            WHERE EnquiryID = ?
+        """, (
+            enquiry_id,
+        ))
+
         # Remove related booking records
         cursor.execute("""
             DELETE FROM Bookings
@@ -1206,6 +1229,133 @@ def permanently_delete_enquiry(enquiry_id):
 
     return redirect(
         url_for("recently_deleted")
+    )
+
+
+# ===========================
+# QUOTE CALCULATOR
+# ===========================
+
+@app.route(
+    "/enquiries/<int:enquiry_id>/quote",
+    methods=["GET", "POST"]
+)
+@admin_required
+def enquiry_quote(enquiry_id):
+    error = None
+    success = request.args.get("success")
+
+    enquiry, allocated_items, quote = get_enquiry_quote(enquiry_id)
+
+    if enquiry is None:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        try:
+            setup_cost = float(request.form.get("setup_cost", "0") or 0)
+            delivery_cost = float(request.form.get("delivery_cost", "0") or 0)
+            labour_cost = float(request.form.get("labour_cost", "0") or 0)
+            other_cost = float(request.form.get("other_cost", "0") or 0)
+        except ValueError:
+            error = "All quote costs must be valid numbers."
+        else:
+            other_description = request.form.get("other_description", "").strip()
+
+            if min(setup_cost, delivery_cost, labour_cost, other_cost) < 0:
+                error = "Quote costs cannot be negative."
+            else:
+                saved, message = save_enquiry_quote(
+                    enquiry_id,
+                    setup_cost,
+                    delivery_cost,
+                    labour_cost,
+                    other_cost,
+                    other_description
+                )
+
+                if saved:
+                    return redirect(url_for(
+                        "enquiry_quote",
+                        enquiry_id=enquiry_id,
+                        success=message
+                    ))
+
+                error = message
+
+        enquiry, allocated_items, quote = get_enquiry_quote(enquiry_id)
+
+    return render_template(
+        "quote_calculator.html",
+        enquiry=enquiry,
+        allocated_items=allocated_items,
+        quote=quote,
+        error=error,
+        success=success
+    )
+
+
+# ===========================
+# ENQUIRY INVENTORY ALLOCATION
+# ===========================
+
+@app.route(
+    "/enquiries/<int:enquiry_id>/inventory",
+    methods=["GET", "POST"]
+)
+@admin_required
+def allocate_enquiry_inventory(enquiry_id):
+
+    error = None
+    success = request.args.get("success")
+
+    enquiry, inventory_items = get_enquiry_inventory_allocation(enquiry_id)
+
+    if enquiry is None:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        quantities = {}
+
+        # Read and validate every inventory quantity entered by Rani
+        for item in inventory_items:
+            field_name = f"quantity_{item['ItemID']}"
+            raw_quantity = request.form.get(field_name, "0").strip()
+
+            try:
+                quantity = int(raw_quantity or 0)
+            except ValueError:
+                error = f"Quantity for {item['ItemName']} must be a whole number."
+                break
+
+            if quantity < 0:
+                error = f"Quantity for {item['ItemName']} cannot be negative."
+                break
+
+            quantities[item["ItemID"]] = quantity
+
+        if error is None:
+            saved, message = save_enquiry_inventory_allocation(
+                enquiry_id, quantities
+            )
+
+            if saved:
+                return redirect(url_for(
+                    "allocate_enquiry_inventory",
+                    enquiry_id=enquiry_id,
+                    success="Inventory allocation saved successfully."
+                ))
+
+            error = message
+
+        # Reload availability after an unsuccessful save attempt
+        enquiry, inventory_items = get_enquiry_inventory_allocation(enquiry_id)
+
+    return render_template(
+        "allocate_inventory.html",
+        enquiry=enquiry,
+        inventory_items=inventory_items,
+        error=error,
+        success=success
     )
 
 
