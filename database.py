@@ -874,3 +874,429 @@ def save_enquiry_quote(enquiry_id, setup_cost, delivery_cost, labour_cost, other
     connection.close()
 
     return True, "Quote estimate saved successfully."
+
+# ===========================
+# CUSTOMER QUOTE LOOKUP
+# ===========================
+
+def find_customer_quote(reference_code, email):
+
+    # Verify the customer using both their reference and email
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.EnquiryID,
+            Enquiries.ReferenceCode,
+            Enquiries.EventType,
+            Enquiries.EventDate,
+            Enquiries.EventLocation,
+            Enquiries.Status,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Quotes.InventorySubtotal,
+            Quotes.SetupCost,
+            Quotes.DeliveryCost,
+            Quotes.LabourCost,
+            Quotes.OtherCost,
+            Quotes.OtherDescription,
+            Quotes.EstimatedTotal,
+            Quotes.QuoteStatus
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        LEFT JOIN Quotes
+            ON Enquiries.EnquiryID = Quotes.EnquiryID
+        WHERE UPPER(Enquiries.ReferenceCode) = UPPER(?)
+          AND LOWER(Customers.Email) = LOWER(?)
+          AND Enquiries.Status != 'Deleted'
+    """, (
+        reference_code.strip(),
+        email.strip()
+    ))
+
+    result = cursor.fetchone()
+    connection.close()
+
+    if result is None:
+        return None
+
+    return dict(result)
+
+
+# ===========================
+# ACCEPT BOOKING
+# ===========================
+
+def accept_enquiry_as_booking(enquiry_id):
+
+    # Convert a pending enquiry with a saved quote into a confirmed booking
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+
+        cursor.execute("""
+            SELECT
+                Enquiries.EnquiryID,
+                Enquiries.EventDate,
+                Enquiries.Status,
+                Quotes.EstimatedTotal
+            FROM Enquiries
+            LEFT JOIN Quotes
+                ON Enquiries.EnquiryID = Quotes.EnquiryID
+            WHERE Enquiries.EnquiryID = ?
+        """, (
+            enquiry_id,
+        ))
+
+        enquiry = cursor.fetchone()
+
+        if enquiry is None:
+            connection.close()
+            return False, "Enquiry could not be found."
+
+        if enquiry["Status"] != "Pending":
+            connection.close()
+            return False, "Only active enquiries can be accepted as bookings."
+
+        if enquiry["EstimatedTotal"] is None:
+            connection.close()
+            return False, "Create and save a quote before accepting this booking."
+
+
+        # Create the booking once only
+        cursor.execute("""
+            SELECT BookingID
+            FROM Bookings
+            WHERE EnquiryID = ?
+        """, (
+            enquiry_id,
+        ))
+
+        existing_booking = cursor.fetchone()
+
+        if existing_booking is None:
+
+            # Older versions of this project included EventDate as a
+            # required Bookings column. Check the live database structure
+            # so existing student data remains compatible.
+            cursor.execute(
+                "PRAGMA table_info(Bookings)"
+            )
+
+            booking_columns = {
+                column["name"]
+                for column in cursor.fetchall()
+            }
+
+
+            # Insert the event date when the existing database requires it
+            if "EventDate" in booking_columns:
+
+                cursor.execute("""
+                    INSERT INTO Bookings
+                    (
+                        EnquiryID,
+                        BookingDate,
+                        EventDate,
+                        BookingStatus,
+                        TotalPrice
+                    )
+                    VALUES (
+                        ?,
+                        CURRENT_TIMESTAMP,
+                        ?,
+                        'Confirmed',
+                        ?
+                    )
+                """, (
+                    enquiry_id,
+                    enquiry["EventDate"],
+                    enquiry["EstimatedTotal"]
+                ))
+
+            else:
+
+                cursor.execute("""
+                    INSERT INTO Bookings
+                    (
+                        EnquiryID,
+                        BookingDate,
+                        BookingStatus,
+                        TotalPrice
+                    )
+                    VALUES (
+                        ?,
+                        CURRENT_TIMESTAMP,
+                        'Confirmed',
+                        ?
+                    )
+                """, (
+                    enquiry_id,
+                    enquiry["EstimatedTotal"]
+                ))
+
+
+            booking_id = cursor.lastrowid
+
+        else:
+
+            booking_id = existing_booking["BookingID"]
+
+
+            # Keep older Bookings tables in sync when they contain EventDate
+            cursor.execute(
+                "PRAGMA table_info(Bookings)"
+            )
+
+            booking_columns = {
+                column["name"]
+                for column in cursor.fetchall()
+            }
+
+
+            if "EventDate" in booking_columns:
+
+                cursor.execute("""
+                    UPDATE Bookings
+                    SET
+                        EventDate = ?,
+                        BookingStatus = 'Confirmed',
+                        TotalPrice = ?
+                    WHERE BookingID = ?
+                """, (
+                    enquiry["EventDate"],
+                    enquiry["EstimatedTotal"],
+                    booking_id
+                ))
+
+            else:
+
+                cursor.execute("""
+                    UPDATE Bookings
+                    SET
+                        BookingStatus = 'Confirmed',
+                        TotalPrice = ?
+                    WHERE BookingID = ?
+                """, (
+                    enquiry["EstimatedTotal"],
+                    booking_id
+                ))
+
+
+        # Lock the saved estimate as the accepted quote
+        cursor.execute("""
+            UPDATE Quotes
+            SET
+                QuoteStatus = 'Accepted',
+                UpdatedAt = CURRENT_TIMESTAMP
+            WHERE EnquiryID = ?
+        """, (
+            enquiry_id,
+        ))
+
+
+        # Move the accepted enquiry into the In Progress workflow
+        cursor.execute("""
+            UPDATE Enquiries
+            SET
+                Status = 'In Progress',
+                UpdatedAt = CURRENT_TIMESTAMP,
+                DeletedAt = NULL
+            WHERE EnquiryID = ?
+        """, (
+            enquiry_id,
+        ))
+
+        connection.commit()
+        connection.close()
+
+        return True, booking_id
+
+    except Exception as error:
+
+        # Roll back partial database changes and print the real error
+        # in the Flask terminal for internal debugging.
+        connection.rollback()
+        connection.close()
+
+        print(
+            "Booking Confirmation Error:",
+            error
+        )
+
+        return False, "The booking could not be confirmed."
+
+
+# ===========================
+# BOOKING CONFIRMATION
+# ===========================
+
+def get_booking_confirmation(booking_id):
+
+    # Retrieve all information needed for the confirmation page
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Bookings.BookingID,
+            Bookings.BookingDate,
+            Bookings.BookingStatus,
+            Bookings.TotalPrice,
+            Enquiries.EnquiryID,
+            Enquiries.ReferenceCode,
+            Enquiries.EventType,
+            Enquiries.EventDate,
+            Enquiries.EventLocation,
+            Enquiries.GuestCount,
+            Enquiries.Requirements,
+            Enquiries.AdditionalInformation,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+        FROM Bookings
+        INNER JOIN Enquiries
+            ON Bookings.EnquiryID = Enquiries.EnquiryID
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        WHERE Bookings.BookingID = ?
+    """, (
+        booking_id,
+    ))
+
+    booking = cursor.fetchone()
+
+    if booking is None:
+        connection.close()
+        return None, []
+
+
+    cursor.execute("""
+        SELECT
+            Inventory.ItemName,
+            Inventory.Category,
+            Inventory.HirePrice,
+            InventoryReservations.QuantityReserved,
+            (
+                COALESCE(Inventory.HirePrice, 0)
+                * InventoryReservations.QuantityReserved
+            ) AS ItemCost
+        FROM InventoryReservations
+        INNER JOIN Inventory
+            ON InventoryReservations.ItemID = Inventory.ItemID
+        WHERE InventoryReservations.EnquiryID = ?
+        ORDER BY Inventory.Category, Inventory.ItemName
+    """, (
+        booking["EnquiryID"],
+    ))
+
+    items = cursor.fetchall()
+
+    connection.close()
+
+    return (
+        dict(booking),
+        [dict(item) for item in items]
+    )
+
+
+# ===========================
+# IN PROGRESS BOOKINGS
+# ===========================
+
+def get_in_progress_bookings():
+
+    # Retrieve all accepted bookings that are currently being prepared
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone,
+            Bookings.BookingID,
+            Bookings.BookingDate,
+            Bookings.BookingStatus,
+            Bookings.TotalPrice,
+            Quotes.EstimatedTotal,
+            Quotes.QuoteStatus
+        FROM Enquiries
+        INNER JOIN Customers
+            ON Enquiries.CustomerID = Customers.CustomerID
+        INNER JOIN Bookings
+            ON Enquiries.EnquiryID = Bookings.EnquiryID
+        LEFT JOIN Quotes
+            ON Enquiries.EnquiryID = Quotes.EnquiryID
+        WHERE Enquiries.Status = 'In Progress'
+        ORDER BY Enquiries.EventDate ASC, Enquiries.EnquiryID DESC
+    """)
+
+    bookings = cursor.fetchall()
+
+    connection.close()
+
+    return bookings
+
+
+def complete_in_progress_booking(enquiry_id):
+
+    # Finish an accepted booking and move it into the archive
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            Bookings.BookingID
+        FROM Enquiries
+        INNER JOIN Bookings
+            ON Enquiries.EnquiryID = Bookings.EnquiryID
+        WHERE Enquiries.EnquiryID = ?
+          AND Enquiries.Status = 'In Progress'
+    """, (
+        enquiry_id,
+    ))
+
+    booking = cursor.fetchone()
+
+    if booking is None:
+
+        connection.close()
+
+        return False
+
+
+    # Mark the booking record itself as completed
+    cursor.execute("""
+        UPDATE Bookings
+        SET BookingStatus = 'Completed'
+        WHERE EnquiryID = ?
+    """, (
+        enquiry_id,
+    ))
+
+
+    # Move the enquiry into the permanent completed archive
+    cursor.execute("""
+        UPDATE Enquiries
+        SET
+            Status = 'Completed',
+            UpdatedAt = CURRENT_TIMESTAMP,
+            DeletedAt = NULL
+        WHERE EnquiryID = ?
+          AND Status = 'In Progress'
+    """, (
+        enquiry_id,
+    ))
+
+    connection.commit()
+    connection.close()
+
+    return True

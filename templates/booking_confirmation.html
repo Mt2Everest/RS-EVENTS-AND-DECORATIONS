@@ -1,0 +1,198 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
+{% extends "base.html" %}
+
+{% block title %}
+Booking Confirmation
+{% endblock %}
+
+{% block content %}
+
+<h1>Booking Confirmation</h1>
+
+<p>
+    This booking has been confirmed by RS Events & Decorations.
+</p>
+
+
+<!-- ==========================
+     BOOKING DETAILS
+========================== -->
+
+<h2>Booking Details</h2>
+
+<table border="1" cellpadding="10">
+
+    <tr>
+        <th>Booking ID</th>
+        <td>{{ booking.BookingID }}</td>
+    </tr>
+
+    <tr>
+        <th>Enquiry Reference</th>
+        <td>{{ booking.ReferenceCode }}</td>
+    </tr>
+
+    <tr>
+        <th>Customer</th>
+        <td>
+            {{ booking.FirstName }}
+            {{ booking.LastName }}
+        </td>
+    </tr>
+
+    <tr>
+        <th>Email</th>
+        <td>{{ booking.Email }}</td>
+    </tr>
+
+    <tr>
+        <th>Phone</th>
+        <td>{{ booking.Phone }}</td>
+    </tr>
+
+    <tr>
+        <th>Event</th>
+        <td>{{ booking.EventType }}</td>
+    </tr>
+
+    <tr>
+        <th>Event Date</th>
+        <td>{{ booking.EventDate }}</td>
+    </tr>
+
+    <tr>
+        <th>Location</th>
+        <td>{{ booking.EventLocation or "Not provided" }}</td>
+    </tr>
+
+    <tr>
+        <th>Guests</th>
+        <td>{{ booking.GuestCount }}</td>
+    </tr>
+
+    <tr>
+        <th>Booking Status</th>
+        <td>{{ booking.BookingStatus }}</td>
+    </tr>
+
+    <tr>
+        <th>Confirmed Quote</th>
+        <td>
+            <strong>
+                ${{ "%.2f"|format(booking.TotalPrice or 0) }}
+            </strong>
+        </td>
+    </tr>
+
+</table>
+
+
+<!-- ==========================
+     RESERVED INVENTORY
+========================== -->
+
+<h2>Reserved Inventory</h2>
+
+{% if allocated_items %}
+
+<table border="1" cellpadding="10">
+
+    <thead>
+
+        <tr>
+            <th>Item</th>
+            <th>Category</th>
+            <th>Quantity</th>
+            <th>Hire Price</th>
+            <th>Item Cost</th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        {% for item in allocated_items %}
+
+        <tr>
+
+            <td>{{ item.ItemName }}</td>
+
+            <td>{{ item.Category }}</td>
+
+            <td>{{ item.QuantityReserved }}</td>
+
+            <td>
+                ${{ "%.2f"|format(item.HirePrice or 0) }}
+            </td>
+
+            <td>
+                ${{ "%.2f"|format(item.ItemCost or 0) }}
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% else %}
+
+<p>
+    No inventory items were allocated to this booking.
+</p>
+
+{% endif %}
+
+
+<!-- ==========================
+     EVENT REQUIREMENTS
+========================== -->
+
+<h2>Event Requirements</h2>
+
+<p>
+    {{ booking.Requirements or "No requirements recorded." }}
+</p>
+
+<h2>Additional Information</h2>
+
+<p>
+    {{ booking.AdditionalInformation or "No additional information recorded." }}
+</p>
+
+
+<!-- ==========================
+     IMPORTANT NOTICE
+========================== -->
+
+<p>
+    <strong>Note:</strong>
+    This page records the confirmed booking and agreed quote.
+    The website does not process card or online payments.
+</p>
+
+<p>
+    <button
+        type="button"
+        onclick="window.print()"
+    >
+        Print Confirmation
+    </button>
+</p>
+
+<a href="{{ url_for('archive') }}">
+    View Archive
+</a>
+
+&nbsp; | &nbsp;
+
+<a href="{{ url_for('dashboard') }}">
+    Return to Dashboard
+</a>
+
+{% endblock %}

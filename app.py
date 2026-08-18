@@ -25,7 +25,12 @@ from database import (
     get_enquiry_inventory_allocation,
     save_enquiry_inventory_allocation,
     get_enquiry_quote,
-    save_enquiry_quote
+    save_enquiry_quote,
+    find_customer_quote,
+    accept_enquiry_as_booking,
+    get_booking_confirmation,
+    get_in_progress_bookings,
+    complete_in_progress_booking
 )
 
 # Import AI Booking Assistant functions
@@ -39,6 +44,9 @@ from ai_assistant import (
     format_inventory_suggestions,
     FIELD_QUESTIONS
 )
+
+# Import regular expressions for quote-reference detection
+import re
 
 # Import timedelta for Remember Me
 from datetime import timedelta
@@ -181,6 +189,131 @@ def assistant_message():
             return jsonify({
                 "error": "Please enter a message."
             }), 400
+
+
+        # ===========================
+        # CUSTOMER QUOTE LOOKUP
+        # ===========================
+
+        lower_message = customer_message.lower()
+
+        # Start quote lookup when the customer asks about their quote
+        if (
+            session.get("ai_stage") not in [
+                "quote_reference",
+                "quote_email"
+            ]
+            and (
+                "my quote" in lower_message
+                or "my estimate" in lower_message
+                or "check quote" in lower_message
+                or "quote status" in lower_message
+                or "how much is my quote" in lower_message
+            )
+        ):
+
+            session["ai_stage"] = "quote_reference"
+
+            return jsonify({
+                "reply":
+                    "I can check the estimate prepared for your enquiry. "
+                    "Please provide your enquiry reference, for example RS-00009.",
+                "stage": "quote_reference"
+            })
+
+
+        # Collect the enquiry reference before asking for the email
+        if session.get("ai_stage") == "quote_reference":
+
+            reference_match = re.search(
+                r"\bRS-\d{1,10}\b",
+                customer_message,
+                re.IGNORECASE
+            )
+
+            if reference_match is None:
+
+                return jsonify({
+                    "reply":
+                        "Please enter the enquiry reference in the format "
+                        "RS-00009.",
+                    "stage": "quote_reference"
+                })
+
+            session["quote_reference"] = (
+                reference_match.group(0).upper()
+            )
+
+            session["ai_stage"] = "quote_email"
+
+            return jsonify({
+                "reply":
+                    "Thank you. For privacy, please enter the email address "
+                    "used when the enquiry was submitted.",
+                "stage": "quote_email"
+            })
+
+
+        # Verify the reference and email before displaying pricing
+        if session.get("ai_stage") == "quote_email":
+
+            verified_quote = find_customer_quote(
+                session.get("quote_reference", ""),
+                customer_message
+            )
+
+            if verified_quote is None:
+
+                return jsonify({
+                    "reply":
+                        "I couldn't verify an enquiry using that reference "
+                        "and email address. Please check the email and try "
+                        "again, or type 'check quote' to restart.",
+                    "stage": "quote_email"
+                })
+
+
+            # A verified enquiry may not have been priced by Rani yet
+            if verified_quote.get("EstimatedTotal") is None:
+
+                session["ai_stage"] = "collecting"
+
+                return jsonify({
+                    "reply":
+                        f"I found {verified_quote['ReferenceCode']}, but an "
+                        "estimated quote has not been prepared by the organiser "
+                        "yet. Your enquiry is still recorded and Rani can "
+                        "prepare the estimate from the owner dashboard.",
+                    "stage": "collecting"
+                })
+
+
+            total = float(
+                verified_quote["EstimatedTotal"]
+            )
+
+            quote_status = (
+                verified_quote.get("QuoteStatus")
+                or "Estimate"
+            )
+
+            session["ai_stage"] = "collecting"
+
+            session.pop(
+                "quote_reference",
+                None
+            )
+
+            return jsonify({
+                "reply":
+                    f"Your current quote for "
+                    f"{verified_quote['ReferenceCode']} is "
+                    f"${total:,.2f}. "
+                    f"Quote status: {quote_status}. "
+                    "This amount is a quote/estimate from RS Events & "
+                    "Decorations and this website does not process payments.",
+                "stage": "collecting"
+            })
 
 
         # Create a draft if the session does not have one
@@ -512,6 +645,12 @@ def reset_assistant():
     # Remove any previously generated reference
     session.pop(
         "ai_reference",
+        None
+    )
+
+    # Remove any quote lookup details
+    session.pop(
+        "quote_reference",
         None
     )
 
@@ -873,7 +1012,7 @@ def edit_enquiry(enquiry_id):
                 Message = ?,
                 UpdatedAt = CURRENT_TIMESTAMP
             WHERE EnquiryID = ?
-            AND Status = 'Pending'
+            AND Status IN ('Pending', 'In Progress')
         """, (
             eventtype,
             eventdate,
@@ -910,7 +1049,7 @@ def edit_enquiry(enquiry_id):
             ON Enquiries.CustomerID =
                Customers.CustomerID
         WHERE Enquiries.EnquiryID = ?
-        AND Enquiries.Status = 'Pending'
+        AND Enquiries.Status IN ('Pending', 'In Progress')
     """, (
         enquiry_id,
     ))
@@ -931,8 +1070,72 @@ def edit_enquiry(enquiry_id):
     )
 
 
+
+
 # ===========================
-# COMPLETE ENQUIRY
+# ACCEPT ENQUIRY AS BOOKING
+# ===========================
+
+@app.route(
+    "/enquiries/<int:enquiry_id>/accept-booking",
+    methods=["POST"]
+)
+@admin_required
+def accept_booking(enquiry_id):
+
+    # Only Rani can convert an enquiry into a confirmed booking
+    accepted, result = accept_enquiry_as_booking(
+        enquiry_id
+    )
+
+    if not accepted:
+
+        return redirect(
+            url_for(
+                "enquiry_quote",
+                enquiry_id=enquiry_id,
+                error=result
+            )
+        )
+
+    return redirect(
+        url_for(
+            "booking_confirmation",
+            booking_id=result
+        )
+    )
+
+
+# ===========================
+# BOOKING CONFIRMATION PAGE
+# ===========================
+
+@app.route(
+    "/bookings/<int:booking_id>/confirmation"
+)
+@login_required
+def booking_confirmation(booking_id):
+
+    booking, allocated_items = get_booking_confirmation(
+        booking_id
+    )
+
+    if booking is None:
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+    return render_template(
+        "booking_confirmation.html",
+        booking=booking,
+        allocated_items=allocated_items
+    )
+
+
+
+# ===========================
+# COMPLETE IN PROGRESS BOOKING
 # ===========================
 
 @app.route(
@@ -942,27 +1145,37 @@ def edit_enquiry(enquiry_id):
 @admin_required
 def complete_enquiry(enquiry_id):
 
-    connection = get_connection()
-    cursor = connection.cursor()
+    # Completed bookings are moved from In Progress into the Archive
+    completed = complete_in_progress_booking(
+        enquiry_id
+    )
 
-    # Move the enquiry to the archive
-    cursor.execute("""
-        UPDATE Enquiries
-        SET
-            Status = 'Completed',
-            UpdatedAt = CURRENT_TIMESTAMP,
-            DeletedAt = NULL
-        WHERE EnquiryID = ?
-        AND Status = 'Pending'
-    """, (
-        enquiry_id,
-    ))
+    if completed:
 
-    connection.commit()
-    connection.close()
+        return redirect(
+            url_for("in_progress")
+        )
 
     return redirect(
         url_for("dashboard")
+    )
+
+
+# ===========================
+# IN PROGRESS BOOKINGS
+# ===========================
+
+@app.route("/in-progress")
+@login_required
+def in_progress():
+
+    # Both Rani and employees can view accepted bookings
+    bookings = get_in_progress_bookings()
+
+    return render_template(
+        "in_progress.html",
+        bookings=bookings,
+        role=session.get("role")
     )
 
 
@@ -1242,7 +1455,7 @@ def permanently_delete_enquiry(enquiry_id):
 )
 @admin_required
 def enquiry_quote(enquiry_id):
-    error = None
+    error = request.args.get("error")
     success = request.args.get("success")
 
     enquiry, allocated_items, quote = get_enquiry_quote(enquiry_id)
