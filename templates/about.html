@@ -1,11 +1,82 @@
 {% extends "base.html" %}
 
 {% block title %}
-Services
+About Us
 {% endblock %}
 
 {% block content %}
 
-<h1>About Page</h1>
+<section class="page-heading">
+    <p class="eyebrow rose">OUR STORY</p>
+    <h1>About RS Events & Decorations</h1>
+</section>
+
+<section class="about-layout">
+
+    <div class="about-text">
+
+        <h2>
+            Beautiful experiences for your special moments.
+        </h2>
+
+        <p>
+            We are passionate about creating beautiful experiences for
+            your special moments. From elegant weddings to fun birthdays,
+            we bring your vision to life with creativity, care and perfection.
+        </p>
+
+        <p>
+            Our goal is to make event planning feel simple and personal,
+            while helping every customer create a celebration that reflects
+            their own style.
+        </p>
+
+        <a
+            class="button button-primary"
+            href="{{ url_for('assistant') }}"
+        >
+            Plan Your Event
+        </a>
+
+    </div>
+
+
+    <div class="about-visual">
+        <div class="decorative-arch">
+            <span>RS</span>
+            <p>Events & Decorations</p>
+        </div>
+    </div>
+
+</section>
+
+
+<section class="value-grid">
+
+    <article class="value-card">
+        <div>♡</div>
+        <h3>Personalised Decorations</h3>
+        <p>Designs shaped around your event and ideas.</p>
+    </article>
+
+    <article class="value-card">
+        <div>✦</div>
+        <h3>Attention to Detail</h3>
+        <p>Careful planning from the first enquiry onwards.</p>
+    </article>
+
+    <article class="value-card">
+        <div>♕</div>
+        <h3>Quality & Reliability</h3>
+        <p>Professional organisation you can depend on.</p>
+    </article>
+
+    <article class="value-card">
+        <div>❀</div>
+        <h3>Customer Satisfaction</h3>
+        <p>A welcoming experience centred around the customer.</p>
+    </article>
+
+</section>
 
 {% endblock %}

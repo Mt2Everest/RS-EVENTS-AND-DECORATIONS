@@ -1,98 +1,86 @@
-<!-- ==========================
-     TEMPLATE SETUP
-========================== -->
-
 {% extends "base.html" %}
-
 
 {% block title %}
 Services
 {% endblock %}
 
-
 {% block content %}
 
+<section class="services-heading">
 
-<!-- ==========================
-     SERVICES HEADING
-========================== -->
+    <p class="eyebrow gold">
+        WHAT WE OFFER
+    </p>
 
-<h1>Our Services</h1>
+    <h1>
+        Our Services
+    </h1>
 
-<p>
-    Explore the services currently offered by
-    RS Events & Decorations.
-    Prices shown are starting estimates only.
-</p>
+    <p>
+        Explore the services currently offered by RS Events & Decorations.
+        Prices shown are starting estimates only.
+    </p>
+
+</section>
 
 
-<!-- ==========================
-     AVAILABLE SERVICES
-========================== -->
+<section class="services-grid">
 
 {% if services %}
 
-
     {% for service in services %}
 
+    <article class="service-card">
 
-    <!-- Individual service -->
-    <div class="service-card">
+        <div class="service-icon">
+            ❀
+        </div>
 
+        <p class="service-category">
+            {{ service.Category }}
+        </p>
 
         <h2>
             {{ service.ServiceName }}
         </h2>
 
-
-        <p>
-            <strong>Category:</strong>
-            {{ service.Category }}
-        </p>
-
-
         <p>
             {{ service.Description }}
         </p>
 
-
-        <p>
+        <div class="service-card-bottom">
 
             <strong>
-                Starting from:
+                Starting from
+                ${{ "%.2f"|format(service.StartingPrice) }}
             </strong>
 
-            ${{ "%.2f"|format(service.StartingPrice) }}
+            <a href="{{ url_for('assistant') }}">
+                Enquire →
+            </a>
 
-        </p>
+        </div>
 
+        <small>
+            Final pricing may change depending on event requirements,
+            inventory, delivery and setup requirements.
+        </small>
 
-        <p>
-
-            <small>
-                Final pricing may change depending on
-                event requirements, inventory,
-                delivery and setup requirements.
-            </small>
-
-        </p>
-
-
-    </div>
-
+    </article>
 
     {% endfor %}
 
-
 {% else %}
 
-
-<p>
-    No services have been added yet.
-</p>
-
+    <div class="empty-state">
+        <h2>No services have been added yet.</h2>
+        <p>
+            Please check back soon or speak with our AI assistant.
+        </p>
+    </div>
 
 {% endif %}
 
+</section>
 
 {% endblock %}

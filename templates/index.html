@@ -1,25 +1,241 @@
-<!-- This page uses the base template -->
 {% extends "base.html" %}
 
-<!-- Change the page title -->
 {% block title %}
 Home
 {% endblock %}
 
 {% block content %}
 
-<!-- Large heading shown on the home page -->
-<h1>RS Events & Decorations</h1>
+<section class="hero-section">
 
-<!-- Short introduction to the business -->
-<p>
-    Elegant decorations for weddings, birthdays and special events.
-</p>
+    <div class="hero-copy">
 
-<!-- Button that will eventually link to the Services page -->
-<button>Explore Services</button>
+        <p class="eyebrow gold">
+            RS EVENTS & DECORATIONS
+        </p>
 
-<!-- Button that will eventually link to the AI booking page -->
-<button>Book an Enquiry</button>
+        <h1>
+            We Make Your Ceremony
+            <span>More Wonderful and Decorative</span>
+        </h1>
+
+        <p class="hero-description">
+            Elegant decorations for your special occasions.
+            We create memories that last a lifetime.
+        </p>
+
+        <div class="hero-actions">
+
+            <a
+                class="button button-primary"
+                href="{{ url_for('assistant') }}"
+            >
+                Explore Services
+            </a>
+
+            <a
+                class="button button-outline-light"
+                href="{{ url_for('gallery') }}"
+            >
+                View Gallery
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <!-- The requested RS Events logo replaces the old photo placeholder -->
+    <div class="hero-logo-panel">
+
+        <img
+            src="{{ url_for(
+                'static',
+                filename='images/rs-logo-transparent.png'
+            ) }}"
+            alt="RS Events and Decorations"
+        >
+
+    </div>
+
+</section>
+
+
+<section class="home-intro">
+
+    <p class="eyebrow rose">
+        WHY CHOOSE RS EVENTS & DECORATIONS?
+    </p>
+
+    <h2>
+        Everything you need to plan a beautiful event
+    </h2>
+
+    <div class="feature-grid">
+
+        <article class="feature-card">
+            <div class="feature-icon">♡</div>
+            <h3>Easy Enquiries</h3>
+            <p>
+                Create an event enquiry quickly through our guided
+                booking assistant.
+            </p>
+        </article>
+
+        <article class="feature-card">
+            <div class="feature-icon">✦</div>
+            <h3>AI Assistant</h3>
+            <p>
+                Get instant help with event ideas, requirements
+                and available decorations.
+            </p>
+        </article>
+
+        <article class="feature-card">
+            <div class="feature-icon">❀</div>
+            <h3>Beautiful Decorations</h3>
+            <p>
+                Explore real RS Events setups for birthdays,
+                receptions, baby showers and more.
+            </p>
+        </article>
+
+        <article class="feature-card">
+            <div class="feature-icon">✓</div>
+            <h3>Personalised Service</h3>
+            <p>
+                Every event is planned around the customer's
+                theme, needs and celebration.
+            </p>
+        </article>
+
+    </div>
+
+</section>
+
+
+<section class="home-showcase">
+
+    <div class="section-heading-row">
+
+        <div>
+            <p class="eyebrow rose">
+                OUR CREATIONS
+            </p>
+
+            <h2>
+                Real events styled by RS Events
+            </h2>
+        </div>
+
+        <a
+            class="text-link"
+            href="{{ url_for('gallery') }}"
+        >
+            View full gallery →
+        </a>
+
+    </div>
+
+
+    <div class="home-photo-grid">
+
+        <img
+            src="{{ url_for('static', filename='images/event-pink-chaise.png') }}"
+            alt="Pink floral event stage"
+        >
+
+        <img
+            src="{{ url_for('static', filename='images/event-black-gold-birthday.png') }}"
+            alt="Black and gold birthday decoration"
+        >
+
+        <img
+            src="{{ url_for('static', filename='images/event-baby-shower.png') }}"
+            alt="Blue and neutral baby shower decoration"
+        >
+
+        <img
+            src="{{ url_for('static', filename='images/event-green-gold-chaise.png') }}"
+            alt="Green and gold event stage"
+        >
+
+    </div>
+
+</section>
+
+
+<section class="reviews-section">
+
+    <div class="page-heading compact-heading">
+
+        <p class="eyebrow rose">
+            CUSTOMER FEEDBACK
+        </p>
+
+        <h2>
+            What customers have said
+        </h2>
+
+        <p>
+            Feedback shared by customers of RS Events & Decorations.
+        </p>
+
+    </div>
+
+
+    <div class="review-image-grid">
+
+        <figure class="review-card">
+            <img
+                src="{{ url_for('static', filename='images/review-50th.png') }}"
+                alt="Customer review for a 50th birthday decoration"
+            >
+        </figure>
+
+        <figure class="review-card">
+            <img
+                src="{{ url_for('static', filename='images/review-baby-shower.png') }}"
+                alt="Customer review for a baby shower decoration"
+            >
+        </figure>
+
+        <figure class="review-card">
+            <img
+                src="{{ url_for('static', filename='images/review-reception.png') }}"
+                alt="Customer review for a reception and birthday decoration"
+            >
+        </figure>
+
+    </div>
+
+</section>
+
+
+<section class="home-cta">
+
+    <div>
+        <p class="eyebrow gold">
+            PLANNING AN EVENT?
+        </p>
+
+        <h2>
+            Tell us what you have in mind.
+        </h2>
+
+        <p>
+            Our AI Booking Assistant can collect your event details
+            and help match your ideas with RS Events services.
+        </p>
+    </div>
+
+    <a
+        class="button button-gold"
+        href="{{ url_for('assistant') }}"
+    >
+        Start Your Enquiry
+    </a>
+
+</section>
 
 {% endblock %}

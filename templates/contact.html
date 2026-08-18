@@ -1,84 +1,148 @@
-<!-- Use the common website layout from base.html -->
 {% extends "base.html" %}
 
-<!-- Set the title shown in the browser tab -->
 {% block title %}
 Contact
 {% endblock %}
 
-<!-- Start of the webpage content -->
 {% block content %}
 
-<!-- Main page heading -->
-<h1>Book an Enquiry</h1>
+<section class="page-heading contact-heading">
 
-<!-- Brief instructions for the customer -->
-<p>Please complete the form below and our team will contact you.</p>
+    <p class="eyebrow rose">
+        GET IN TOUCH
+    </p>
 
-<!-- Customer enquiry form -->
-<form method="POST">
+    <h1>
+        Contact RS Events & Decorations
+    </h1>
 
-    <!-- CUSTOMER DETAILS -->
+    <p>
+        Contact the owner directly for general questions,
+        or use the AI Booking Assistant to submit a new event enquiry.
+    </p>
 
-    <!-- Section heading -->
-    <h2>Customer Details</h2>
-
-    <!-- Customer's first name -->
-    <label>First Name</label><br>
-    <input type="text" name="firstname" required><br><br>
-
-    <!-- Customer's last name -->
-    <label>Last Name</label><br>
-    <input type="text" name="lastname" required><br><br>
-
-    <!-- Customer's email address -->
-    <label>Email</label><br>
-    <input type="email" name="email" required><br><br>
-
-    <!-- Customer's phone number -->
-    <label>Phone Number</label><br>
-    <input type="text" name="phone"><br><br>
+</section>
 
 
-    <!-- EVENT DETAILS -->
+<section class="contact-owner-section">
 
-    <!-- Section heading -->
-    <h2>Event Details</h2>
+    <div class="owner-card">
 
-    <!-- Event type selection -->
-    <label>Event Type</label><br>
-    <select name="eventtype" required>
-        <option value="">Select an Event</option>
-        <option>Wedding</option>
-        <option>Birthday</option>
-        <option>Engagement</option>
-        <option>Corporate Event</option>
-        <option>Baby Shower</option>
-        <option>Other</option>
-    </select><br><br>
+        <div class="owner-logo-wrap">
 
-    <!-- Event date -->
-    <label>Event Date</label><br>
-    <input type="date" name="eventdate" required><br><br>
+            <img
+                class="owner-logo"
+                src="{{ url_for(
+                    'static',
+                    filename='images/rs-logo-transparent.png'
+                ) }}"
+                alt="RS Events and Decorations logo"
+            >
 
-    <!-- Expected number of guests -->
-    <label>Number of Guests</label><br>
-    <input type="number" name="guests"><br><br>
+        </div>
 
-    <!-- Estimated customer budget -->
-    <label>Estimated Budget ($)</label><br>
-    <input type="number" name="budget"><br><br>
 
-    <!-- Additional event information -->
-    <label>Additional Information</label><br>
-    <textarea name="message" rows="6"></textarea><br><br>
+        <div class="owner-information">
 
-    <!-- Submit the enquiry to the database -->
-    <button type="submit">
-        Submit Enquiry
-    </button>
+            <p class="eyebrow rose">
+                OWNER
+            </p>
 
-</form>
+            <h2>
+                Rani Swami
+            </h2>
 
-<!-- End of the webpage content -->
+            <p>
+                Owner of RS Events & Decorations.
+            </p>
+
+            <p>
+                For general business questions, contact Rani using
+                the details below. For a new event request, the AI
+                Booking Assistant will collect the information needed
+                to create an enquiry.
+            </p>
+
+
+            <div class="contact-methods">
+
+                <a
+                    class="contact-method"
+                    href="mailto:ranisanjay@gmail.com"
+                >
+                    <span class="contact-method-icon">✉</span>
+
+                    <span>
+                        <strong>Email</strong>
+                        ranisanjay@gmail.com
+                    </span>
+                </a>
+
+
+                <a
+                    class="contact-method"
+                    href="tel:0426507095"
+                >
+                    <span class="contact-method-icon">☎</span>
+
+                    <span>
+                        <strong>Phone</strong>
+                        0426 507 095
+                    </span>
+                </a>
+
+
+                <a
+                    class="contact-method"
+                    href="https://www.instagram.com/rseventsanddecorations/?hl=en"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <span class="contact-method-icon">◎</span>
+
+                    <span>
+                        <strong>Instagram</strong>
+                        @rseventsanddecorations
+                    </span>
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="contact-booking-callout">
+
+    <div>
+
+        <p class="eyebrow rose">
+            EVENT ENQUIRIES
+        </p>
+
+        <h2>
+            Planning an event?
+        </h2>
+
+        <p>
+            Instead of filling out a manual booking form, use the
+            RS Events AI Booking Assistant. It will collect your
+            event type, date, location, guest numbers, budget,
+            requirements and contact details.
+        </p>
+
+    </div>
+
+    <a
+        class="button button-primary"
+        href="{{ url_for('assistant') }}"
+    >
+        Open AI Booking Assistant
+    </a>
+
+</section>
+
 {% endblock %}

@@ -1,33 +1,20 @@
 <!DOCTYPE html>
-
 <html lang="en">
 
-
 <head>
-
-
     <meta charset="UTF-8">
-
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-
-    <!-- Display the current page title -->
     <title>
-
         {% block title %}
-
         RS Events & Decorations
-
         {% endblock %}
-
     </title>
 
-
-    <!-- Connect the website stylesheet -->
     <link
         rel="stylesheet"
         href="{{ url_for(
@@ -35,165 +22,239 @@
             filename='css/style.css'
         ) }}"
     >
-
-
 </head>
-
 
 <body>
 
-
     <!-- ==========================
-         WEBSITE NAVIGATION
+         WEBSITE HEADER
     ========================== -->
 
+    <header class="site-header">
 
-    <nav>
-
-
-        <!-- Public website pages -->
-
-        <a href="{{ url_for('home') }}">
-            Home
+        <!-- Real RS Events & Decorations logo -->
+        <a
+            class="brand"
+            href="{{ url_for('home') }}"
+            aria-label="RS Events and Decorations home"
+        >
+            <img
+                class="brand-logo"
+                src="{{ url_for(
+                    'static',
+                    filename='images/rs-logo-transparent.png'
+                ) }}"
+                alt="RS Events and Decorations logo"
+            >
         </a>
 
 
-        <a href="{{ url_for('services') }}">
-            Services
-        </a>
-
-
-        <a href="{{ url_for('gallery') }}">
-            Gallery
-        </a>
-
-
-        <a href="{{ url_for('about') }}">
-            About Us
-        </a>
-
-
-        <a href="{{ url_for('contact') }}">
-            Contact
-        </a>
-
-
-        <a href="{{ url_for('assistant') }}">
-            AI Assistant
-        </a>
-
+        <button
+            class="mobile-menu-button"
+            type="button"
+            aria-label="Open navigation menu"
+            onclick="document.getElementById('site-navigation').classList.toggle('open')"
+        >
+            ☰
+        </button>
 
 
         <!-- ==========================
-             STAFF NAVIGATION
+             WEBSITE NAVIGATION
         ========================== -->
 
+        <nav
+            id="site-navigation"
+            class="site-navigation"
+        >
 
-        {% if session.get("logged_in") %}
+            <!-- Public website pages -->
 
-
-            <!-- Dashboard -->
-            <a href="{{ url_for('dashboard') }}">
-                Dashboard
+            <a href="{{ url_for('home') }}">
+                Home
             </a>
 
-            <a href="{{ url_for('in_progress') }}">
-                In Progress
+            <a href="{{ url_for('services') }}">
+                Services
             </a>
 
-            <a href="{{ url_for('inventory') }}">
-                Inventory
+            <a href="{{ url_for('gallery') }}">
+                Gallery
             </a>
 
-
-            <!-- Services and pricing -->
-            <a href="{{ url_for('manage_services') }}">
-                Services Management
+            <a href="{{ url_for('about') }}">
+                About Us
             </a>
 
-
-            <!-- Accepted bookings -->
-            <a href="{{ url_for('in_progress') }}">
-                In Progress
+            <a href="{{ url_for('contact') }}">
+                Contact
             </a>
 
-
-            <!-- Business inventory -->
-            <a href="{{ url_for('inventory') }}">
-                Inventory
+            <a href="{{ url_for('assistant') }}">
+                AI Assistant
             </a>
-
 
 
             <!-- ==========================
-                 RANI ADMINISTRATION
+                 STAFF NAVIGATION
             ========================== -->
 
+            {% if session.get("logged_in") %}
 
-            {% if session.get("role") == "admin" %}
+                <a href="{{ url_for('dashboard') }}">
+                    Dashboard
+                </a>
 
+                <a href="{{ url_for('manage_services') }}">
+                    Services Management
+                </a>
 
-                <!-- Completed bookings -->
-                <a href="{{ url_for('archive') }}">
-                    Archive
+                <a href="{{ url_for('in_progress') }}">
+                    In Progress
+                </a>
+
+                <a href="{{ url_for('inventory') }}">
+                    Inventory
                 </a>
 
 
-                <!-- Soft deleted enquiries -->
-                <a href="{{ url_for('recently_deleted') }}">
-                    Recently Deleted
+                <!-- ==========================
+                     RANI ADMINISTRATION
+                ========================== -->
+
+                {% if session.get("role") == "admin" %}
+
+                    <a href="{{ url_for('archive') }}">
+                        Archive
+                    </a>
+
+                    <a href="{{ url_for('recently_deleted') }}">
+                        Recently Deleted
+                    </a>
+
+                    <a href="{{ url_for('manage_employees') }}">
+                        Employees
+                    </a>
+
+                {% endif %}
+
+
+                <a
+                    class="nav-secondary"
+                    href="{{ url_for('logout') }}"
+                >
+                    Logout
                 </a>
 
+            {% else %}
 
-                <!-- Employee management -->
-                <a href="{{ url_for('manage_employees') }}">
-                    Employees
+                <a
+                    class="nav-secondary"
+                    href="{{ url_for('login') }}"
+                >
+                    Staff Login
                 </a>
 
+                <a
+                    class="nav-book"
+                    href="{{ url_for('assistant') }}"
+                >
+                    Book Now
+                </a>
 
             {% endif %}
 
+        </nav>
 
-
-            <!-- End the current login session -->
-            <a href="{{ url_for('logout') }}">
-                Logout
-            </a>
-
-
-        {% else %}
-
-
-            <!-- Staff login page -->
-            <a href="{{ url_for('login') }}">
-                Staff Login
-            </a>
-
-
-        {% endif %}
-
-
-    </nav>
-
+    </header>
 
 
     <!-- ==========================
          PAGE CONTENT
     ========================== -->
 
-
-    <main>
-
+    <main class="site-main">
 
         {% block content %}
-
         {% endblock %}
-
 
     </main>
 
 
+    <!-- ==========================
+         WEBSITE FOOTER
+    ========================== -->
+
+    <footer class="site-footer">
+
+        <div class="footer-layout">
+
+            <!-- Instagram reference requested for public website -->
+            <div class="footer-social">
+
+                <p class="footer-heading">
+                    Follow RS Events
+                </p>
+
+                <a
+                    href="https://www.instagram.com/rseventsanddecorations/?hl=en"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="RS Events and Decorations on Instagram"
+                >
+                    <span class="instagram-icon">◎</span>
+                    @rseventsanddecorations
+                </a>
+
+            </div>
+
+
+            <div class="footer-centre">
+
+                <img
+                    class="footer-logo"
+                    src="{{ url_for(
+                        'static',
+                        filename='images/rs-logo-transparent.png'
+                    ) }}"
+                    alt="RS Events and Decorations"
+                >
+
+                <p>
+                    Elegant decorations and personalised service
+                    for memorable events.
+                </p>
+
+            </div>
+
+
+            <div class="footer-links">
+
+                <p class="footer-heading">
+                    Quick Links
+                </p>
+
+                <a href="{{ url_for('services') }}">
+                    Services
+                </a>
+
+                <a href="{{ url_for('gallery') }}">
+                    Gallery
+                </a>
+
+                <a href="{{ url_for('contact') }}">
+                    Contact
+                </a>
+
+            </div>
+
+        </div>
+
+        <p class="footer-small">
+            RS Events & Decorations
+        </p>
+
+    </footer>
+
 </body>
-
-
 </html>

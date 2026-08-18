@@ -34,7 +34,12 @@ from database import (
     complete_in_progress_booking,
     get_enquiry_inspiration_images,
     add_enquiry_inspiration_image,
-    find_enquiry_for_image_upload
+    find_enquiry_for_image_upload,
+    get_all_services,
+    get_service,
+    add_service,
+    update_service,
+    delete_service
 )
 
 # Import AI Booking Assistant functions
@@ -173,10 +178,87 @@ def home():
 # Display the services page
 @app.route("/services")
 def services():
-    return render_template("services.html")
+    # Display live services and starting prices
+    return render_template(
+        "services.html",
+        services=get_all_services()
+    )
 
 
 # Display the gallery page
+# ===========================
+# SERVICE AND PRICING MANAGEMENT
+# ===========================
+
+@app.route("/manage-services")
+@login_required
+def manage_services():
+    # Employees can view services while Rani can manage them
+    return render_template(
+        "manage_services.html",
+        services=get_all_services(),
+        role=session.get("role")
+    )
+
+@app.route("/manage-services/add", methods=["GET", "POST"])
+@admin_required
+def add_service_page():
+    error = None
+    if request.method == "POST":
+        name = request.form.get("service_name", "").strip()
+        category = request.form.get("category", "").strip()
+        description = request.form.get("description", "").strip()
+        price_text = request.form.get("starting_price", "").strip()
+        if not name or not category or not description or not price_text:
+            error = "All service fields are required."
+        else:
+            try:
+                price = float(price_text)
+            except ValueError:
+                error = "Starting price must be a valid number."
+            else:
+                if price < 0:
+                    error = "Starting price cannot be negative."
+                else:
+                    add_service(name, category, description, price)
+                    return redirect(url_for("manage_services"))
+    return render_template("service_form.html", page_title="Add Service", service=None, error=error)
+
+@app.route("/manage-services/<int:service_id>/edit", methods=["GET", "POST"])
+@admin_required
+def edit_service_page(service_id):
+    service = get_service(service_id)
+    if service is None:
+        return redirect(url_for("manage_services"))
+    error = None
+    if request.method == "POST":
+        name = request.form.get("service_name", "").strip()
+        category = request.form.get("category", "").strip()
+        description = request.form.get("description", "").strip()
+        price_text = request.form.get("starting_price", "").strip()
+        if not name or not category or not description or not price_text:
+            error = "All service fields are required."
+        else:
+            try:
+                price = float(price_text)
+            except ValueError:
+                error = "Starting price must be a valid number."
+            else:
+                if price < 0:
+                    error = "Starting price cannot be negative."
+                else:
+                    update_service(service_id, name, category, description, price)
+                    return redirect(url_for("manage_services"))
+    return render_template("service_form.html", page_title="Edit Service", service=service, error=error)
+
+@app.route("/manage-services/<int:service_id>/delete", methods=["POST"])
+@admin_required
+def delete_service_page(service_id):
+    # Only Rani can delete services
+    delete_service(service_id)
+    return redirect(url_for("manage_services"))
+
+
 @app.route("/gallery")
 def gallery():
     return render_template("gallery.html")
@@ -935,101 +1017,16 @@ def enquiry_inspiration(enquiry_id):
 
 
 # ===========================
-# CONTACT AND ENQUIRY FORM
+# CONTACT PAGE
 # ===========================
 
-@app.route("/contact", methods=["GET", "POST"])
+@app.route("/contact")
 def contact():
 
-    success = None
-    error = None
-
-    if request.method == "POST":
-
-        # Collect customer information
-        firstname = request.form["firstname"].strip()
-        lastname = request.form["lastname"].strip()
-        email = request.form["email"].strip()
-        phone = request.form["phone"].strip()
-
-        # Collect event information
-        eventtype = request.form["eventtype"].strip()
-        eventdate = request.form["eventdate"]
-        guests = request.form["guests"]
-        budget = request.form["budget"]
-        message = request.form["message"].strip()
-
-        # Validate required information
-        if (
-            firstname == ""
-            or lastname == ""
-            or email == ""
-            or phone == ""
-            or eventtype == ""
-            or eventdate == ""
-        ):
-
-            error = (
-                "Please complete all required fields."
-            )
-
-        else:
-
-            connection = get_connection()
-            cursor = connection.cursor()
-
-            # Add the customer
-            cursor.execute("""
-                INSERT INTO Customers
-                (
-                    FirstName,
-                    LastName,
-                    Email,
-                    Phone
-                )
-                VALUES (?, ?, ?, ?)
-            """, (
-                firstname,
-                lastname,
-                email,
-                phone
-            ))
-
-            customer_id = cursor.lastrowid
-
-            # Add the enquiry
-            cursor.execute("""
-                INSERT INTO Enquiries
-                (
-                    CustomerID,
-                    EventType,
-                    EventDate,
-                    GuestCount,
-                    Budget,
-                    Message,
-                    Status
-                )
-                VALUES (?, ?, ?, ?, ?, ?, 'Pending')
-            """, (
-                customer_id,
-                eventtype,
-                eventdate,
-                guests,
-                budget,
-                message
-            ))
-
-            connection.commit()
-            connection.close()
-
-            success = (
-                "Your enquiry has been submitted successfully."
-            )
-
+    # The contact page now provides owner/business contact information.
+    # Event enquiries are submitted through the AI Booking Assistant.
     return render_template(
-        "contact.html",
-        success=success,
-        error=error
+        "contact.html"
     )
 
 

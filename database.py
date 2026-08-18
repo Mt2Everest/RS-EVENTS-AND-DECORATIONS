@@ -1400,3 +1400,63 @@ def find_enquiry_for_image_upload(
         return None
 
     return dict(enquiry)
+
+# ===========================
+# SERVICE AND PRICING MANAGEMENT
+# ===========================
+
+def get_all_services():
+    # Retrieve all services for public and staff pages
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT ServiceID, ServiceName, Category, Description, StartingPrice
+        FROM Services
+        ORDER BY Category, ServiceName
+    """)
+    services = cursor.fetchall()
+    connection.close()
+    return [dict(service) for service in services]
+
+def get_service(service_id):
+    # Retrieve one service for editing
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT ServiceID, ServiceName, Category, Description, StartingPrice
+        FROM Services WHERE ServiceID = ?
+    """, (service_id,))
+    service = cursor.fetchone()
+    connection.close()
+    return dict(service) if service else None
+
+def add_service(service_name, category, description, starting_price):
+    # Add a new service
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        INSERT INTO Services (ServiceName, Category, Description, StartingPrice)
+        VALUES (?, ?, ?, ?)
+    """, (service_name, category, description, starting_price))
+    connection.commit()
+    connection.close()
+
+def update_service(service_id, service_name, category, description, starting_price):
+    # Update an existing service
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+        UPDATE Services
+        SET ServiceName = ?, Category = ?, Description = ?, StartingPrice = ?
+        WHERE ServiceID = ?
+    """, (service_name, category, description, starting_price, service_id))
+    connection.commit()
+    connection.close()
+
+def delete_service(service_id):
+    # Permanently remove a service
+    connection = get_connection()
+    cursor = connection.cursor()
+    cursor.execute("DELETE FROM Services WHERE ServiceID = ?", (service_id,))
+    connection.commit()
+    connection.close()

@@ -1,11 +1,208 @@
 {% extends "base.html" %}
 
 {% block title %}
-Services
+Gallery
 {% endblock %}
 
 {% block content %}
 
-<h1>Gallery Page</h1>
+<section class="page-heading">
+
+    <p class="eyebrow rose">
+        OUR CREATIONS
+    </p>
+
+    <h1>
+        Real Events, Beautifully Styled
+    </h1>
+
+    <p>
+        Browse a selection of decorations and event setups
+        created by RS Events & Decorations.
+    </p>
+
+</section>
+
+
+<section class="gallery-section">
+
+    <div class="gallery-grid">
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-traditional-stage.png') }}"
+                alt="Traditional Event decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Traditional Event</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-pink-floral-stage.png') }}"
+                alt="Floral Celebration decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Floral Celebration</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-green-gold.png') }}"
+                alt="Green & Gold decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Green & Gold</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-black-gold-birthday.png') }}"
+                alt="Birthday decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Birthday</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-red-white-draping.png') }}"
+                alt="Traditional Draping decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Traditional Draping</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-baby-shower.png') }}"
+                alt="Baby Shower decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Baby Shower</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-blue-gold.png') }}"
+                alt="Blue & Gold decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Blue & Gold</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-black-gold-18th.png') }}"
+                alt="18th Birthday decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>18th Birthday</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-blue-draping.png') }}"
+                alt="Blue Draping decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Blue Draping</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-white-gold-51st.png') }}"
+                alt="Milestone Birthday decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Milestone Birthday</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-red-heart.png') }}"
+                alt="Romantic Event decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Romantic Event</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-holi.png') }}"
+                alt="Holi Celebration decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Holi Celebration</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-red-40th.png') }}"
+                alt="40th Celebration decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>40th Celebration</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-pink-gold.png') }}"
+                alt="Pink & Gold decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Pink & Gold</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-blue-birthday.png') }}"
+                alt="Birthday decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Birthday</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-pink-chaise.png') }}"
+                alt="Floral Stage decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Floral Stage</figcaption>
+        </figure>
+
+        <figure class="gallery-card">
+            <img
+                src="{{ url_for('static', filename='images/event-green-gold-chaise.png') }}"
+                alt="Elegant Stage decoration by RS Events and Decorations"
+                loading="lazy"
+            >
+            <figcaption>Elegant Stage</figcaption>
+        </figure>
+    </div>
+
+</section>
+
+
+<section class="gallery-cta">
+
+    <h2>
+        Inspired by something you see?
+    </h2>
+
+    <p>
+        Tell our AI Booking Assistant the colours, style or type of
+        setup you like and it can help create your enquiry.
+    </p>
+
+    <a
+        class="button button-primary"
+        href="{{ url_for('assistant') }}"
+    >
+        Start an Enquiry
+    </a>
+
+</section>
 
 {% endblock %}
