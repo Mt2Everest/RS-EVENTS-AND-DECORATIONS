@@ -2,20 +2,28 @@
 # IMPORTS
 # ===========================
 
-# Import SQLite for database communication
+# Import SQLite so Python can communicate with the database
 import sqlite3
 
-# Import OS for file paths
+# Import OS so database files can be located
 import os
 
 
 # ===========================
-# DATABASE LOCATION
+# DATABASE LOCATIONS
 # ===========================
 
-DATABASE = os.path.join("database", "rs_events.db")
+# Location of the SQLite database
+DATABASE = os.path.join(
+    "database",
+    "rs_events.db"
+)
 
-SCHEMA_FILE = os.path.join("database", "schema.sql")
+# Location of the SQL database structure
+SCHEMA_FILE = os.path.join(
+    "database",
+    "schema.sql"
+)
 
 
 # ===========================
@@ -27,29 +35,37 @@ def get_connection():
     # Connect to the SQLite database
     connection = sqlite3.connect(DATABASE)
 
-    # Allow database rows to be accessed using column names
+    # Allow database columns to be accessed by name
     connection.row_factory = sqlite3.Row
 
-    # Enable foreign key support
-    connection.execute("PRAGMA foreign_keys = ON")
+    # Enable foreign key relationships
+    connection.execute(
+        "PRAGMA foreign_keys = ON"
+    )
 
     return connection
 
 
 # ===========================
-# TABLE COLUMN CHECK
+# COLUMN CHECK
 # ===========================
 
-def column_exists(connection, table_name, column_name):
+def column_exists(
+    connection,
+    table_name,
+    column_name
+):
 
     cursor = connection.cursor()
 
+    # Retrieve information about the selected table
     cursor.execute(
         f"PRAGMA table_info({table_name})"
     )
 
     columns = cursor.fetchall()
 
+    # Check whether the requested column exists
     for column in columns:
 
         if column["name"] == column_name:
@@ -66,56 +82,133 @@ def migrate_database(connection):
 
     cursor = connection.cursor()
 
-    # Add account roles to an older Admins table
-    if not column_exists(connection, "Admins", "Role"):
+
+    # Add account roles to older databases
+    if not column_exists(
+        connection,
+        "Admins",
+        "Role"
+    ):
 
         cursor.execute("""
             ALTER TABLE Admins
-            ADD COLUMN Role TEXT NOT NULL DEFAULT 'employee'
+            ADD COLUMN Role TEXT
+            NOT NULL DEFAULT 'employee'
         """)
 
-    # Add enquiry creation date to older databases
-    if not column_exists(connection, "Enquiries", "CreatedAt"):
+
+    # Add enquiry creation date
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "CreatedAt"
+    ):
 
         cursor.execute("""
             ALTER TABLE Enquiries
             ADD COLUMN CreatedAt TEXT
         """)
 
-        cursor.execute("""
-            UPDATE Enquiries
-            SET CreatedAt = CURRENT_TIMESTAMP
-            WHERE CreatedAt IS NULL
-        """)
 
-    # Add enquiry editing date
-    if not column_exists(connection, "Enquiries", "UpdatedAt"):
+    # Add enquiry update date
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "UpdatedAt"
+    ):
 
         cursor.execute("""
             ALTER TABLE Enquiries
             ADD COLUMN UpdatedAt TEXT
         """)
 
+
     # Add recently deleted date
-    if not column_exists(connection, "Enquiries", "DeletedAt"):
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "DeletedAt"
+    ):
 
         cursor.execute("""
             ALTER TABLE Enquiries
             ADD COLUMN DeletedAt TEXT
         """)
 
-    # Existing accounts other than Rani become employees
+
+    # Add customer enquiry reference
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "ReferenceCode"
+    ):
+
+        cursor.execute("""
+            ALTER TABLE Enquiries
+            ADD COLUMN ReferenceCode TEXT
+        """)
+
+
+    # Add event location
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "EventLocation"
+    ):
+
+        cursor.execute("""
+            ALTER TABLE Enquiries
+            ADD COLUMN EventLocation TEXT
+        """)
+
+
+    # Add decoration requirements
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "Requirements"
+    ):
+
+        cursor.execute("""
+            ALTER TABLE Enquiries
+            ADD COLUMN Requirements TEXT
+        """)
+
+
+    # Add optional organiser information
+    if not column_exists(
+        connection,
+        "Enquiries",
+        "AdditionalInformation"
+    ):
+
+        cursor.execute("""
+            ALTER TABLE Enquiries
+            ADD COLUMN AdditionalInformation TEXT
+        """)
+
+
+    # Existing accounts other than Rani remain employees
     cursor.execute("""
         UPDATE Admins
         SET Role = 'employee'
         WHERE Username != 'rani'
     """)
 
+
     # Rani always remains the supreme administrator
     cursor.execute("""
         UPDATE Admins
         SET Role = 'admin'
         WHERE Username = 'rani'
+    """)
+
+
+    # Ensure enquiry reference numbers remain unique
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_enquiry_reference
+        ON Enquiries(ReferenceCode)
     """)
 
     connection.commit()
@@ -127,50 +220,67 @@ def migrate_database(connection):
 
 def create_database():
 
-    # Create the database directory if it does not exist
-    os.makedirs("database", exist_ok=True)
+    # Create the database folder when required
+    os.makedirs(
+        "database",
+        exist_ok=True
+    )
 
     connection = get_connection()
 
     cursor = connection.cursor()
 
-    # Read and execute the SQL schema
-    with open(SCHEMA_FILE, "r", encoding="utf-8") as schema_file:
+    # Read the database schema
+    with open(
+        SCHEMA_FILE,
+        "r",
+        encoding="utf-8"
+    ) as schema_file:
 
-        schema = schema_file.read()
+        sql_script = schema_file.read()
 
-        cursor.executescript(schema)
+    # Create all required tables
+    cursor.executescript(sql_script)
 
     connection.commit()
 
-    # Update an existing database with required columns
+    # Update older database versions
     migrate_database(connection)
 
     connection.close()
 
+    print(
+        "Database and tables created successfully!"
+    )
+
 
 # ===========================
-# CREATE PERMANENT RANI ACCOUNT
+# PERMANENT RANI ADMIN
 # ===========================
 
-def add_admin(username, password, full_name, email):
+def add_admin(
+    username,
+    password,
+    full_name,
+    email
+):
 
     connection = get_connection()
 
     cursor = connection.cursor()
 
-    # Check whether Rani's account already exists
+    # Check whether Rani already exists
     cursor.execute("""
         SELECT AdminID
         FROM Admins
         WHERE Username = 'rani'
     """)
 
-    existing_rani = cursor.fetchone()
+    rani = cursor.fetchone()
 
-    if existing_rani is None:
+    # Create Rani when required
+    if rani is None:
 
-        # Create Rani as the supreme administrator
         cursor.execute("""
             INSERT INTO Admins
             (
@@ -180,6 +290,7 @@ def add_admin(username, password, full_name, email):
                 Email,
                 Role
             )
+
             VALUES (?, ?, ?, ?, 'admin')
         """, (
             username,
@@ -188,15 +299,336 @@ def add_admin(username, password, full_name, email):
             email
         ))
 
+        print(
+            "Rani administrator account created!"
+        )
+
     else:
 
-        # Ensure Rani can never lose administrator access
+        # Ensure Rani can never lose administrator privileges
         cursor.execute("""
             UPDATE Admins
             SET Role = 'admin'
             WHERE Username = 'rani'
         """)
 
+        print(
+            "Rani administrator account protected!"
+        )
+
     connection.commit()
 
     connection.close()
+
+
+# ===========================
+# CREATE AI ENQUIRY
+# ===========================
+
+def create_ai_enquiry(draft):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+
+    # Store the customer's personal details
+    cursor.execute("""
+        INSERT INTO Customers
+        (
+            FirstName,
+            LastName,
+            Email,
+            Phone
+        )
+
+        VALUES (?, ?, ?, ?)
+    """, (
+        draft["first_name"],
+        draft["last_name"],
+        draft["email"],
+        draft["phone"]
+    ))
+
+
+    # Store the newly created customer ID
+    customer_id = cursor.lastrowid
+
+
+    # Create a message for existing dashboard displays
+    message = (
+        f"Requirements: {draft['requirements']}\n"
+        f"Additional Information: "
+        f"{draft.get('additional_information') or 'None provided'}"
+    )
+
+
+    # Store the AI-created enquiry
+    cursor.execute("""
+        INSERT INTO Enquiries
+        (
+            CustomerID,
+            EventType,
+            EventDate,
+            EventLocation,
+            GuestCount,
+            Budget,
+            Requirements,
+            AdditionalInformation,
+            Message,
+            Status,
+            CreatedAt
+        )
+
+        VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            'Pending',
+            CURRENT_TIMESTAMP
+        )
+    """, (
+        customer_id,
+        draft["event_type"],
+        draft["event_date"],
+        draft["event_location"],
+        draft["guest_count"],
+        draft["budget"],
+        draft["requirements"],
+        draft.get("additional_information"),
+        message
+    ))
+
+
+    # Retrieve the new enquiry ID
+    enquiry_id = cursor.lastrowid
+
+
+    # Create an easy-to-read enquiry reference
+    reference_code = (
+        f"RS-{enquiry_id:05d}"
+    )
+
+
+    # Store the enquiry reference
+    cursor.execute("""
+        UPDATE Enquiries
+        SET ReferenceCode = ?
+        WHERE EnquiryID = ?
+    """, (
+        reference_code,
+        enquiry_id
+    ))
+
+
+    connection.commit()
+
+    connection.close()
+
+    return reference_code
+
+
+# ===========================
+# FIND CUSTOMER ENQUIRY
+# ===========================
+
+def find_customer_enquiry(
+    reference_code,
+    email
+):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    # Find a pending enquiry using both reference and email
+    cursor.execute("""
+        SELECT
+            Enquiries.*,
+            Customers.FirstName,
+            Customers.LastName,
+            Customers.Email,
+            Customers.Phone
+
+        FROM Enquiries
+
+        INNER JOIN Customers
+            ON Enquiries.CustomerID =
+               Customers.CustomerID
+
+        WHERE UPPER(Enquiries.ReferenceCode) = UPPER(?)
+
+        AND LOWER(Customers.Email) = LOWER(?)
+
+        AND Enquiries.Status = 'Pending'
+    """, (
+        reference_code.strip(),
+        email.strip()
+    ))
+
+    enquiry = cursor.fetchone()
+
+    connection.close()
+
+    # Return nothing when verification fails
+    if enquiry is None:
+        return None
+
+
+    # Convert the database enquiry into the same format
+    # used by the AI Booking Assistant
+    return {
+
+        "reference_code":
+            enquiry["ReferenceCode"],
+
+        "first_name":
+            enquiry["FirstName"],
+
+        "last_name":
+            enquiry["LastName"],
+
+        "email":
+            enquiry["Email"],
+
+        "phone":
+            enquiry["Phone"],
+
+        "event_type":
+            enquiry["EventType"],
+
+        "event_date":
+            enquiry["EventDate"],
+
+        "event_location":
+            enquiry["EventLocation"],
+
+        "guest_count":
+            enquiry["GuestCount"],
+
+        "budget":
+            enquiry["Budget"],
+
+        "requirements":
+            enquiry["Requirements"],
+
+        "additional_information":
+            enquiry["AdditionalInformation"]
+    }
+
+
+# ===========================
+# UPDATE CUSTOMER ENQUIRY
+# ===========================
+
+def update_customer_enquiry(
+    reference_code,
+    verified_email,
+    draft
+):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+
+    # Find the enquiry and connected customer
+    cursor.execute("""
+        SELECT
+            Enquiries.EnquiryID,
+            Enquiries.CustomerID
+
+        FROM Enquiries
+
+        INNER JOIN Customers
+            ON Enquiries.CustomerID =
+               Customers.CustomerID
+
+        WHERE UPPER(Enquiries.ReferenceCode) = UPPER(?)
+
+        AND LOWER(Customers.Email) = LOWER(?)
+
+        AND Enquiries.Status = 'Pending'
+    """, (
+        reference_code.strip(),
+        verified_email.strip()
+    ))
+
+    enquiry = cursor.fetchone()
+
+
+    # Stop when verification no longer matches
+    if enquiry is None:
+
+        connection.close()
+
+        return False
+
+
+    enquiry_id = enquiry["EnquiryID"]
+
+    customer_id = enquiry["CustomerID"]
+
+
+    # Update the customer's personal information
+    cursor.execute("""
+        UPDATE Customers
+
+        SET
+            FirstName = ?,
+            LastName = ?,
+            Email = ?,
+            Phone = ?
+
+        WHERE CustomerID = ?
+    """, (
+        draft["first_name"],
+        draft["last_name"],
+        draft["email"],
+        draft["phone"],
+        customer_id
+    ))
+
+
+    # Rebuild the dashboard message
+    message = (
+        f"Requirements: {draft['requirements']}\n"
+        f"Additional Information: "
+        f"{draft.get('additional_information') or 'None provided'}"
+    )
+
+
+    # Update the enquiry
+    cursor.execute("""
+        UPDATE Enquiries
+
+        SET
+            EventType = ?,
+            EventDate = ?,
+            EventLocation = ?,
+            GuestCount = ?,
+            Budget = ?,
+            Requirements = ?,
+            AdditionalInformation = ?,
+            Message = ?,
+            UpdatedAt = CURRENT_TIMESTAMP
+
+        WHERE EnquiryID = ?
+
+        AND Status = 'Pending'
+    """, (
+        draft["event_type"],
+        draft["event_date"],
+        draft["event_location"],
+        draft["guest_count"],
+        draft["budget"],
+        draft["requirements"],
+        draft.get("additional_information"),
+        message,
+        enquiry_id
+    ))
+
+
+    connection.commit()
+
+    connection.close()
+
+    return True

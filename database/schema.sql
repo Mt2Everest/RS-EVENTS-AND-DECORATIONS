@@ -1,8 +1,4 @@
--- ===========================
--- CUSTOMERS TABLE
--- Stores customer contact information
--- ===========================
-
+-- Create the Customers table
 CREATE TABLE IF NOT EXISTS Customers (
 
     CustomerID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,11 +14,7 @@ CREATE TABLE IF NOT EXISTS Customers (
 );
 
 
--- ===========================
--- ACCOUNTS TABLE
--- Stores Rani and employee login accounts
--- ===========================
-
+-- Create the login accounts table
 CREATE TABLE IF NOT EXISTS Admins (
 
     AdminID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,50 +32,46 @@ CREATE TABLE IF NOT EXISTS Admins (
 );
 
 
--- ===========================
--- SERVICES TABLE
--- Stores services offered by the business
--- ===========================
-
+-- Create the Services table
 CREATE TABLE IF NOT EXISTS Services (
 
     ServiceID INTEGER PRIMARY KEY AUTOINCREMENT,
 
     ServiceName TEXT NOT NULL,
 
+    Category TEXT,
+
     Description TEXT,
 
-    Price REAL
+    StartingPrice REAL
 
 );
 
 
--- ===========================
--- INVENTORY TABLE
--- Stores decoration inventory information
--- ===========================
-
+-- Create the Inventory table
 CREATE TABLE IF NOT EXISTS Inventory (
 
-    InventoryID INTEGER PRIMARY KEY AUTOINCREMENT,
+    ItemID INTEGER PRIMARY KEY AUTOINCREMENT,
 
     ItemName TEXT NOT NULL,
 
+    Category TEXT,
+
     Quantity INTEGER NOT NULL DEFAULT 0,
 
-    AvailabilityStatus TEXT NOT NULL DEFAULT 'Available'
+    AvailableQuantity INTEGER NOT NULL DEFAULT 0,
+
+    HirePrice REAL
 
 );
 
 
--- ===========================
--- ENQUIRIES TABLE
--- Stores customer event enquiries
--- ===========================
-
+-- Create the Enquiries table
 CREATE TABLE IF NOT EXISTS Enquiries (
 
     EnquiryID INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    ReferenceCode TEXT UNIQUE,
 
     CustomerID INTEGER NOT NULL,
 
@@ -91,15 +79,21 @@ CREATE TABLE IF NOT EXISTS Enquiries (
 
     EventDate TEXT NOT NULL,
 
+    EventLocation TEXT,
+
     GuestCount INTEGER,
 
     Budget REAL,
+
+    Requirements TEXT,
+
+    AdditionalInformation TEXT,
 
     Message TEXT,
 
     Status TEXT NOT NULL DEFAULT 'Pending',
 
-    CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CreatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
 
     UpdatedAt TEXT,
 
@@ -111,11 +105,7 @@ CREATE TABLE IF NOT EXISTS Enquiries (
 );
 
 
--- ===========================
--- BOOKINGS TABLE
--- Stores confirmed customer bookings
--- ===========================
-
+-- Create the Bookings table
 CREATE TABLE IF NOT EXISTS Bookings (
 
     BookingID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,7 +114,10 @@ CREATE TABLE IF NOT EXISTS Bookings (
 
     BookingDate TEXT,
 
-    BookingStatus TEXT NOT NULL DEFAULT 'Confirmed',
+    BookingStatus TEXT
+        NOT NULL DEFAULT 'Confirmed',
+
+    TotalPrice REAL,
 
     FOREIGN KEY (EnquiryID)
         REFERENCES Enquiries(EnquiryID)

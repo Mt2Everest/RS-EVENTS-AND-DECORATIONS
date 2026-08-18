@@ -1,11 +1,398 @@
+<!-- ==========================
+     TEMPLATE SETUP
+========================== -->
+
 {% extends "base.html" %}
 
+
+<!-- ==========================
+     BROWSER TITLE
+========================== -->
+
 {% block title %}
-Services
+AI Booking Assistant
 {% endblock %}
+
+
+<!-- ==========================
+     AI BOOKING ASSISTANT
+========================== -->
 
 {% block content %}
 
-<h1>Assistant Page</h1>
+<div class="assistant-container">
+
+    <!-- AI Booking Assistant heading -->
+    <h1>RS Events AI Booking Assistant</h1>
+
+    <p>
+        Chat with our AI assistant to create your event enquiry.
+        Your enquiry will only be submitted after you confirm
+        that all information is correct.
+    </p>
+
+
+    <!-- ==========================
+         CHAT WINDOW
+    ========================== -->
+
+    <div
+        id="chat-window"
+        class="chat-window"
+    >
+
+        <!-- Initial AI welcome message -->
+        <div class="message assistant-message">
+
+            <strong>
+                RS Events Assistant
+            </strong>
+
+            <p>
+                Hello! Welcome to RS Events & Decorations.
+            </p>
+
+            <p>
+                I'll help you create your event enquiry.
+                You can give me multiple details at once,
+                or we can go through them one at a time.
+            </p>
+
+            <p>
+                What type of event are you planning?
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==========================
+         CHAT INPUT
+    ========================== -->
+
+    <div class="assistant-input-area">
+
+        <!-- Customer message box -->
+        <textarea
+            id="assistant-message"
+            rows="3"
+            placeholder="Type your message here..."
+        ></textarea>
+
+        <br>
+
+        <!-- Send customer message -->
+        <button
+            type="button"
+            id="send-message-button"
+        >
+            Send
+        </button>
+
+
+        <!-- Start a completely new enquiry -->
+        <button
+            type="button"
+            id="reset-assistant-button"
+        >
+            Start New Enquiry
+        </button>
+
+    </div>
+
+
+    <!-- ==========================
+         ASSISTANT STATUS
+    ========================== -->
+
+    <p
+        id="assistant-status"
+        class="assistant-status"
+    ></p>
+
+</div>
+
+
+<!-- ==========================
+     CHATBOT JAVASCRIPT
+========================== -->
+
+<script>
+
+    // Store references to the chatbot elements
+    const chatWindow =
+        document.getElementById("chat-window");
+
+    const messageInput =
+        document.getElementById("assistant-message");
+
+    const sendButton =
+        document.getElementById("send-message-button");
+
+    const resetButton =
+        document.getElementById("reset-assistant-button");
+
+    const statusText =
+        document.getElementById("assistant-status");
+
+
+    // Add a new message bubble to the chatbot
+    function addMessage(sender, message) {
+
+        // Create the message container
+        const messageContainer =
+            document.createElement("div");
+
+        // Choose the correct message style
+        if (sender === "customer") {
+
+            messageContainer.className =
+                "message customer-message";
+
+        } else {
+
+            messageContainer.className =
+                "message assistant-message";
+        }
+
+
+        // Create the sender name
+        const senderName =
+            document.createElement("strong");
+
+        if (sender === "customer") {
+
+            senderName.textContent = "You";
+
+        } else {
+
+            senderName.textContent =
+                "RS Events Assistant";
+        }
+
+
+        // Create the message text
+        const messageText =
+            document.createElement("p");
+
+        // Preserve new lines returned by the AI
+        messageText.style.whiteSpace =
+            "pre-line";
+
+        messageText.textContent =
+            message;
+
+
+        // Add the sender and message to the bubble
+        messageContainer.appendChild(
+            senderName
+        );
+
+        messageContainer.appendChild(
+            messageText
+        );
+
+
+        // Add the message to the chat window
+        chatWindow.appendChild(
+            messageContainer
+        );
+
+
+        // Automatically scroll to the newest message
+        chatWindow.scrollTop =
+            chatWindow.scrollHeight;
+    }
+
+
+    // Send the customer's message to Flask
+    async function sendMessage() {
+
+        // Read the customer's message
+        const message =
+            messageInput.value.trim();
+
+
+        // Do not send an empty message
+        if (message === "") {
+
+            statusText.textContent =
+                "Please type a message first.";
+
+            return;
+        }
+
+
+        // Show the customer's message
+        addMessage(
+            "customer",
+            message
+        );
+
+
+        // Clear the message box
+        messageInput.value = "";
+
+
+        // Show a loading message
+        statusText.textContent =
+            "RS Events Assistant is typing...";
+
+
+        // Prevent duplicate messages while waiting
+        sendButton.disabled = true;
+
+
+        try {
+
+            // Send the message to the Flask AI route
+            const response = await fetch(
+                "/assistant/message",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        message: message
+                    })
+                }
+            );
+
+
+            // Read the Flask response
+            const data =
+                await response.json();
+
+
+            // Display an error returned by Flask
+            if (!response.ok) {
+
+                addMessage(
+                    "assistant",
+                    data.error ||
+                    "Something went wrong."
+                );
+
+                return;
+            }
+
+
+            // Display the AI response
+            addMessage(
+                "assistant",
+                data.reply
+            );
+
+
+            // Show successful submission status
+            if (data.submitted === true) {
+
+                statusText.textContent =
+                    "Enquiry successfully submitted.";
+
+            } else {
+
+                statusText.textContent = "";
+            }
+
+        }
+
+        catch (error) {
+
+            // Display a connection error
+            addMessage(
+                "assistant",
+                "I couldn't connect to the booking system. "
+                + "Please try again."
+            );
+
+            console.error(
+                "Assistant Error:",
+                error
+            );
+
+        }
+
+        finally {
+
+            // Allow another message to be sent
+            sendButton.disabled = false;
+
+            // Return focus to the message box
+            messageInput.focus();
+        }
+    }
+
+
+    // Reset the conversation and start a new enquiry
+    async function resetAssistant() {
+
+        const response = await fetch(
+            "/assistant/reset",
+            {
+                method: "POST"
+            }
+        );
+
+        const data =
+            await response.json();
+
+
+        // Clear previous messages
+        chatWindow.innerHTML = "";
+
+
+        // Display the new conversation message
+        addMessage(
+            "assistant",
+            data.reply
+        );
+
+
+        // Clear any previous status
+        statusText.textContent = "";
+
+        messageInput.focus();
+    }
+
+
+    // Send the message when the Send button is clicked
+    sendButton.addEventListener(
+        "click",
+        sendMessage
+    );
+
+
+    // Start a new enquiry when Reset is clicked
+    resetButton.addEventListener(
+        "click",
+        resetAssistant
+    );
+
+
+    // Allow Enter to send messages
+    messageInput.addEventListener(
+        "keydown",
+        function(event) {
+
+            // Shift + Enter creates a new line
+            if (
+                event.key === "Enter"
+                && !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+            }
+        }
+    );
+
+</script>
 
 {% endblock %}
